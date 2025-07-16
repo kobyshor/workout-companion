@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { ChevronLeft, ChevronRight, User, TrendingUp, X, Camera, Info, Undo2, GripVertical, Pencil, Trash2, Plus, ClipboardList, PartyPopper, ClipboardPlus, LogIn, LogOut, FileText, Loader2, AlertTriangle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, User, TrendingUp, X, Camera, Info, Undo2, GripVertical, Pencil, Trash2, Plus, ClipboardList, PartyPopper, ClipboardPlus, LogIn, LogOut, FileText, Loader2, AlertTriangle, Flame } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, doc, getDoc, setDoc, enableIndexedDbPersistence } from 'firebase/firestore';
@@ -31,7 +31,7 @@ const toYYYYMMDD = (date) => {
 const formatDate = (date) => date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
 const parseExerciseString = (line) => {
     const name = line.split(':')[0].trim();
-    const base = { id: Math.random(), name, type: 'strength', targetSets: 'N/A', targetReps: 'N/A', targetWeight: 'N/A', targetWeightValue: 0, actualReps: '', actualWeight: '', actualTime: '', actualDistance: '', note: '', status: 'pending', completedTimestamp: null };
+    const base = { id: Math.random(), name, type: 'strength', targetSets: 'N/A', targetReps: 'N/A', targetWeight: 'N/A', targetWeightValue: 0, actualReps: '', actualWeight: '', actualTime: '', actualDistance: '', note: '', status: 'pending', completedTimestamp: null, calories: null };
     if (name.toLowerCase().includes('skipping') || name.toLowerCase().includes('treadmill') || name.toLowerCase().includes('basketball') || name.toLowerCase().includes('run')) base.type = 'cardio';
     if (line.includes('stopped due to')) { base.note = 'Stopped due to' + line.split(' stopped due to')[1]; return base; }
     const parts = line.split(':');
@@ -101,16 +101,16 @@ const EditExerciseModal = ({ exercise, onSave, onDelete, onClose }) => {
         }
     };
     return (
-        <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50 p-4"><div className="bg-gray-800 text-white rounded-lg p-6 w-full max-w-md"><h2 className="text-2xl font-bold mb-4">Edit Exercise</h2><div className="space-y-4"><div><label className="text-xs text-gray-400">Exercise Name</label><input type="text" value={editedExercise.name || ''} onChange={e => handleFieldChange('name', e.target.value)} className="bg-gray-700 p-2 rounded w-full mt-1" /></div><div><label className="text-xs text-gray-400">Target Sets</label><input type="text" value={editedExercise.targetSets || ''} onChange={e => handleFieldChange('targetSets', e.target.value)} className="bg-gray-700 p-2 rounded w-full mt-1" /></div><div><label className="text-xs text-gray-400">Target Reps</label><input type="text" value={editedExercise.targetReps || ''} onChange={e => handleFieldChange('targetReps', e.target.value)} className="bg-gray-700 p-2 rounded w-full mt-1" /></div><div><label className="text-xs text-gray-400">Target Weight</label><input type="text" value={editedExercise.targetWeight || ''} onChange={e => handleFieldChange('targetWeight', e.target.value)} className="bg-gray-700 p-2 rounded w-full mt-1" placeholder="e.g., 40kg" /></div></div><div className="flex justify-between items-center mt-6"><button onClick={handleDeleteClick} className={`px-4 py-2 rounded flex items-center transition-colors ${confirmDelete ? 'bg-red-600' : 'bg-red-900/50 hover:bg-red-900'}`}><Trash2 size={16} className="mr-2" /> {confirmDelete ? 'Confirm Delete?' : 'Delete'}</button><div className="space-x-2"><button onClick={onClose} className="bg-gray-600 px-4 py-2 rounded">Cancel</button><button onClick={handleSave} className="bg-cyan-600 px-4 py-2 rounded">Save Changes</button></div></div></div></div>
+        <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50 p-4"><div className="bg-gray-800 text-white rounded-lg p-6 w-full max-w-md"><h2 className="text-2xl font-bold mb-4">Edit Exercise</h2><div className="space-y-4"><div><label className="text-xs text-gray-400">Exercise Name</label><input type="text" value={editedExercise.name || ''} onChange={e => handleFieldChange('name', e.target.value)} className="bg-gray-700 p-2 rounded w-full mt-1" /></div><div><label className="text-xs text-gray-400">Target Sets</label><input type="text" value={editedExercise.targetSets || ''} onChange={e => handleFieldChange('targetSets', e.target.value)} className="bg-gray-700 p-2 rounded w-full mt-1" /></div><div><label className="text-xs text-gray-400">Target Reps</label><input type="text" value={editedExercise.targetReps || ''} onChange={e => handleFieldChange('targetReps', e.target.value)} className="bg-gray-700 p-2 rounded w-full mt-1" /></div><div><label className="text-xs text-gray-400">Target Weight (kg)</label><input type="text" value={editedExercise.targetWeight || ''} onChange={e => handleFieldChange('targetWeight', e.target.value)} className="bg-gray-700 p-2 rounded w-full mt-1" placeholder="e.g., 40kg" /></div></div><div className="flex justify-between items-center mt-6"><button onClick={handleDeleteClick} className={`px-4 py-2 rounded flex items-center transition-colors ${confirmDelete ? 'bg-red-600' : 'bg-red-900/50 hover:bg-red-900'}`}><Trash2 size={16} className="mr-2" /> {confirmDelete ? 'Confirm Delete?' : 'Delete'}</button><div className="space-x-2"><button onClick={onClose} className="bg-gray-600 px-4 py-2 rounded">Cancel</button><button onClick={handleSave} className="bg-cyan-600 px-4 py-2 rounded">Save Changes</button></div></div></div></div>
     );
 };
 
 const AddExerciseModal = ({ onAdd, onClose }) => {
-    const [newExercise, setNewExercise] = useState({ name: '', type: 'strength', targetSets: '', targetReps: '', targetWeight: '' });
+    const [newExercise, setNewExercise] = useState({ name: '', type: 'strength', targetSets: '3', targetReps: '12', targetWeight: '10' });
     const handleFieldChange = (field, value) => setNewExercise(prev => ({ ...prev, [field]: value }));
     const handleAdd = () => { onAdd(newExercise); onClose(); };
     return (
-        <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50 p-4"><div className="bg-gray-800 text-white rounded-lg p-6 w-full max-w-md"><h2 className="text-2xl font-bold mb-4">Add New Exercise</h2><div className="space-y-4"><div><label className="text-xs text-gray-400">Exercise Name</label><input type="text" value={newExercise.name} onChange={e => handleFieldChange('name', e.target.value)} className="bg-gray-700 p-2 rounded w-full mt-1" /></div><div><label className="text-xs text-gray-400">Exercise Type</label><select value={newExercise.type} onChange={e => handleFieldChange('type', e.target.value)} className="bg-gray-700 p-2 rounded w-full mt-1"><option value="strength">Strength</option><option value="cardio">Cardio</option></select></div>{newExercise.type === 'strength' && (<><div><label className="text-xs text-gray-400">Target Sets</label><input type="text" value={newExercise.targetSets} onChange={e => handleFieldChange('targetSets', e.target.value)} className="bg-gray-700 p-2 rounded w-full mt-1" /></div><div><label className="text-xs text-gray-400">Target Reps</label><input type="text" value={newExercise.targetReps} onChange={e => handleFieldChange('targetReps', e.target.value)} className="bg-gray-700 p-2 rounded w-full mt-1" /></div><div><label className="text-xs text-gray-400">Target Weight</label><input type="text" value={newExercise.targetWeight} onChange={e => handleFieldChange('targetWeight', e.target.value)} className="bg-gray-700 p-2 rounded w-full mt-1" /></div></>)}</div><div className="flex justify-end space-x-2 mt-6"><button onClick={onClose} className="bg-gray-600 px-4 py-2 rounded">Cancel</button><button onClick={handleAdd} className="bg-cyan-600 px-4 py-2 rounded">Add Exercise</button></div></div></div>
+        <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50 p-4"><div className="bg-gray-800 text-white rounded-lg p-6 w-full max-w-md"><h2 className="text-2xl font-bold mb-4">Add New Exercise</h2><div className="space-y-4"><div><label className="text-xs text-gray-400">Exercise Name</label><input type="text" value={newExercise.name} onChange={e => handleFieldChange('name', e.target.value)} className="bg-gray-700 p-2 rounded w-full mt-1" /></div><div><label className="text-xs text-gray-400">Exercise Type</label><select value={newExercise.type} onChange={e => handleFieldChange('type', e.target.value)} className="bg-gray-700 p-2 rounded w-full mt-1"><option value="strength">Strength</option><option value="cardio">Cardio</option></select></div>{newExercise.type === 'strength' && (<><div><label className="text-xs text-gray-400">Target Sets</label><input type="number" value={newExercise.targetSets} onChange={e => handleFieldChange('targetSets', e.target.value)} className="bg-gray-700 p-2 rounded w-full mt-1" /></div><div><label className="text-xs text-gray-400">Target Reps</label><input type="number" value={newExercise.targetReps} onChange={e => handleFieldChange('targetReps', e.target.value)} className="bg-gray-700 p-2 rounded w-full mt-1" /></div><div><label className="text-xs text-gray-400">Target Weight (kg)</label><input type="number" value={newExercise.targetWeight} onChange={e => handleFieldChange('targetWeight', e.target.value)} className="bg-gray-700 p-2 rounded w-full mt-1" step="0.5" /></div></>)}</div><div className="flex justify-end space-x-2 mt-6"><button onClick={onClose} className="bg-gray-600 px-4 py-2 rounded">Cancel</button><button onClick={handleAdd} className="bg-cyan-600 px-4 py-2 rounded">Add Exercise</button></div></div></div>
     );
 };
 
@@ -121,44 +121,74 @@ const SummaryModal = ({ summary, onClose, onCopy }) => (
 const ImportModal = ({ existingPlan, onImport, onClose }) => {
     const [rawText, setRawText] = useState('');
     const [parsedData, setParsedData] = useState(null);
-    const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     const [resolutions, setResolutions] = useState({});
 
-    const exampleText = `July 18 2025\n• Dumbbell Bench Press: 3x12 @ 15kg/hand\n• Seated Cable Row: 3x12 @ 45kg\n\nJuly 20 2025\n• Leg Curls: 3x12 @ 50kg`;
+    const exampleText = `Jul 16\nUpper Body A (Elbow Safe):\n• Machine Chest Press: 3x12-15\n• Seated Cable Row: 3x10-12`;
 
-    const sanitizeText = (text) => {
-        let sanitized = text.replace(/[\*•-]/g, '\n• ');
-        return sanitized.replace(/\n\s*\n/g, '\n');
+    const sanitizeAndParseText = (text) => {
+        const cleanedText = text
+            .replace(/<br\s*\/?>/gi, '\n')
+            .replace(/[\*•-]/g, '\n• ')
+            .replace(/\u00a0/g, ' ')
+            .replace(/[\t]+/g, ' ')
+            .replace(/\s{2,}/g, ' ')
+            .replace(/\n\s*\n/g, '\n')
+            .trim();
+
+        const lines = cleanedText.split('\n');
+        const workoutsByDate = {};
+        let currentDate = null;
+        const currentYear = new Date().getFullYear();
+
+        lines.forEach(line => {
+            line = line.trim();
+            if (!line) return;
+
+            const dateMatch = line.match(/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s(\d{1,2})/i);
+            if (dateMatch) {
+                const dateStr = `${dateMatch[0]} ${currentYear}`;
+                const parsedDate = new Date(dateStr);
+                if (!isNaN(parsedDate)) {
+                    currentDate = toYYYYMMDD(parsedDate);
+                    workoutsByDate[currentDate] = [];
+                    return;
+                }
+            }
+            
+            // If a line doesn't start with a bullet but we have a date, treat it as part of the workout
+            if (currentDate && !line.startsWith('•')) {
+                 workoutsByDate[currentDate].push(line);
+            } else if (currentDate && line.startsWith('•')) {
+                workoutsByDate[currentDate].push(line.substring(1).trim());
+            }
+        });
+        return workoutsByDate;
     };
 
-    const handlePreview = async () => {
-        setIsLoading(true);
+    const handlePreview = () => {
         setError('');
-        setParsedData(null);
-        const sanitizedText = sanitizeText(rawText);
-        const prompt = `Parse the following workout text into a structured JSON object. The top-level keys must be dates in "YYYY-MM-DD" format. Each date key should have a value of an array of strings, where each string is a single exercise. Infer the year if it's missing. Today is ${new Date().toDateString()}. Here is the text: \n\n${sanitizedText}`;
-        const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json", responseSchema: { type: "OBJECT", patternProperties: { "^\\d{4}-\\d{2}-\\d{2}$": { type: "ARRAY", items: { type: "STRING" } } } } } };
-        const apiKey = firebaseConfig.apiKey; 
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
         try {
-            const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-            if (!response.ok) throw new Error(`API error: ${response.statusText}`);
-            const result = await response.json();
-            const parsedJsonText = result.candidates[0].content.parts[0].text;
-            const parsed = JSON.parse(parsedJsonText);
+            const parsed = sanitizeAndParseText(rawText);
+            if (Object.keys(parsed).length === 0) {
+                setError("Could not find any valid dates or exercises. Please check the format.");
+                return;
+            }
             const initialResolutions = {};
             Object.keys(parsed).forEach(dateKey => { if (existingPlan[dateKey]) { initialResolutions[dateKey] = 'skip'; } });
             setResolutions(initialResolutions);
             setParsedData(parsed);
-        } catch (e) { console.error(e); setError("Failed to parse the workout plan. Please check the format and try again."); } finally { setIsLoading(false); }
+        } catch (e) {
+            console.error(e);
+            setError("Failed to parse the workout plan. Please check the format and try again.");
+        }
     };
 
     const handleResolutionChange = (dateKey, resolution) => setResolutions(prev => ({ ...prev, [dateKey]: resolution }));
     const handleConfirmImport = () => { onImport(parsedData, resolutions); onClose(); };
 
     return (
-        <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50 p-4"><div className="bg-gray-800 text-white rounded-lg p-6 w-full max-w-2xl"><h2 className="text-2xl font-bold mb-4">Import from Text</h2>{!parsedData ? (<><p className="text-gray-400 mb-4">Paste your workout plan below. Use clear dates and list exercises for each day.</p><textarea value={rawText} onChange={e => setRawText(e.target.value)} placeholder={exampleText} className="w-full h-64 bg-gray-900 text-gray-200 rounded-lg p-3 border border-gray-600 focus:border-cyan-500"></textarea>{error && <p className="text-red-400 mt-2">{error}</p>}<div className="flex justify-end space-x-2 mt-4"><button onClick={onClose} className="bg-gray-600 px-4 py-2 rounded">Cancel</button><button onClick={handlePreview} disabled={isLoading || !rawText} className="bg-cyan-600 px-4 py-2 rounded disabled:opacity-50 flex items-center">{isLoading ? <><Loader2 className="animate-spin mr-2" /> Processing...</> : 'Preview Import'}</button></div></>) : (<><h3 className="text-lg font-semibold mb-2">Import Preview</h3><p className="text-gray-400 mb-4">Review the parsed workouts and resolve any conflicts.</p><div className="max-h-80 overflow-y-auto space-y-4 pr-2">{Object.entries(parsedData).map(([dateKey, exercises]) => (<div key={dateKey} className={`p-3 rounded-lg ${existingPlan[dateKey] ? 'bg-yellow-900/50 border border-yellow-700' : 'bg-gray-900'}`}><h4 className="font-bold">{formatDate(new Date(dateKey + 'T00:00:00'))}</h4>{existingPlan[dateKey] && (<div className="flex items-center space-x-4 my-2 text-sm"><span className="text-yellow-400 flex items-center"><AlertTriangle size={16} className="mr-2"/> Conflict: Data already exists for this day.</span><div><label className="mr-2"><input type="radio" name={`resolve-${dateKey}`} value="skip" checked={resolutions[dateKey] === 'skip'} onChange={() => handleResolutionChange(dateKey, 'skip')} /> Skip</label><label><input type="radio" name={`resolve-${dateKey}`} value="override" checked={resolutions[dateKey] === 'override'} onChange={() => handleResolutionChange(dateKey, 'override')} /> Override</label></div></div>)}<ul className="list-disc list-inside text-gray-300 text-sm pl-2">{exercises.map((ex, i) => <li key={i}>{ex}</li>)}</ul></div>))}</div><div className="flex justify-end space-x-2 mt-6"><button onClick={() => setParsedData(null)} className="bg-gray-600 px-4 py-2 rounded">Back</button><button onClick={handleConfirmImport} className="bg-green-600 px-4 py-2 rounded">Confirm & Import</button></div></>)}</div></div>
+        <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50 p-4"><div className="bg-gray-800 text-white rounded-lg p-6 w-full max-w-2xl"><h2 className="text-2xl font-bold mb-4">Import from Text</h2>{!parsedData ? (<><p className="text-gray-400 mb-4">Paste your workout plan below. Use clear dates and list exercises for each day.</p><textarea value={rawText} onChange={e => setRawText(e.target.value)} placeholder={exampleText} className="w-full h-64 bg-gray-900 text-gray-200 rounded-lg p-3 border border-gray-600 focus:border-cyan-500"></textarea>{error && <p className="text-red-400 mt-2">{error}</p>}<div className="flex justify-end space-x-2 mt-4"><button onClick={onClose} className="bg-gray-600 px-4 py-2 rounded">Cancel</button><button onClick={handlePreview} disabled={!rawText} className="bg-cyan-600 px-4 py-2 rounded disabled:opacity-50 flex items-center">Preview Import</button></div></>) : (<><h3 className="text-lg font-semibold mb-2">Import Preview</h3><p className="text-gray-400 mb-4">Review the parsed workouts and resolve any conflicts.</p><div className="max-h-80 overflow-y-auto space-y-4 pr-2">{Object.entries(parsedData).map(([dateKey, exercises]) => (<div key={dateKey} className={`p-3 rounded-lg ${existingPlan[dateKey] ? 'bg-yellow-900/50 border border-yellow-700' : 'bg-gray-900'}`}><h4 className="font-bold">{formatDate(new Date(dateKey + 'T00:00:00'))}</h4>{existingPlan[dateKey] && (<div className="flex items-center space-x-4 my-2 text-sm"><span className="text-yellow-400 flex items-center"><AlertTriangle size={16} className="mr-2"/> Conflict: Data already exists for this day.</span><div><label className="mr-2"><input type="radio" name={`resolve-${dateKey}`} value="skip" checked={resolutions[dateKey] === 'skip'} onChange={() => handleResolutionChange(dateKey, 'skip')} /> Skip</label><label><input type="radio" name={`resolve-${dateKey}`} value="override" checked={resolutions[dateKey] === 'override'} onChange={() => handleResolutionChange(dateKey, 'override')} /> Override</label></div></div>)}<ul className="list-disc list-inside text-gray-300 text-sm pl-2">{exercises.map((ex, i) => <li key={i}>{ex}</li>)}</ul></div>))}</div><div className="flex justify-end space-x-2 mt-6"><button onClick={() => setParsedData(null)} className="bg-gray-600 px-4 py-2 rounded">Back</button><button onClick={handleConfirmImport} className="bg-green-600 px-4 py-2 rounded">Confirm & Import</button></div></>)}</div></div>
     );
 };
 
@@ -209,7 +239,7 @@ const ExerciseItem = ({ exercise, onUpdate, onComplete, onSkip, onUndo, onEdit, 
     };
     return (
         <div draggable={exercise.status === 'pending'} onDragStart={onDragStart} onDragOver={onDragOver} onDrop={onDrop} onDragEnd={onDragEnd} className={`bg-gray-800 rounded-lg shadow-md exercise-item transition-all duration-300 status-${exercise.status} ${isDragging ? 'opacity-50' : 'opacity-100'}`}>
-            <div className="p-4"><div className="flex items-start space-x-2">{exercise.status === 'pending' && <GripVertical className="text-gray-600 mt-2 cursor-grab" />}<input type="checkbox" checked={exercise.status !== 'pending'} onChange={onComplete} className="form-checkbox h-7 w-7 mt-1 bg-gray-700 border-gray-600 rounded text-cyan-500 focus:ring-cyan-500/50 cursor-pointer" disabled={exercise.status !== 'pending'} /><div className="flex-1 min-w-0"><div className="flex justify-between items-center"><div className="flex items-center flex-wrap"><h3 className="text-lg font-semibold text-white">{exercise.name}</h3>{trend}</div><div className="flex items-center space-x-1"><button onClick={onShowVisualAid} className="p-1 text-gray-500 hover:text-cyan-400"><Info size={20} /></button>{exercise.status === 'pending' && <button onClick={onEdit} className="p-1 text-gray-500 hover:text-cyan-400"><Pencil size={18} /></button>}{exercise.status === 'pending' && <button onClick={() => setIsSkipping(true)} className="p-1 text-gray-500 hover:text-red-400"><X size={20} /></button>}{exercise.status !== 'pending' && <button onClick={onUndo} className="p-1 text-gray-500 hover:text-cyan-400" title="Undo"><Undo2 size={20} /></button>}</div></div><p className="text-sm text-gray-400">Target: {exercise.targetSets} of {exercise.targetReps} @ {exercise.targetWeight}</p><div className={`mt-4 space-y-3 ${exercise.status !== 'pending' ? 'opacity-50' : ''}`}>{exercise.type === 'strength' ? (<div className="grid grid-cols-2 gap-3"><input type="text" value={exercise.actualReps || ''} onChange={e => onUpdate({ actualReps: e.target.value })} placeholder={exercise.targetReps || 'e.g., 3x12'} className="bg-gray-700 p-2 rounded" disabled={exercise.status !== 'pending'} /><input type="number" value={exercise.actualWeight || ''} onChange={e => onUpdate({ actualWeight: e.target.value })} placeholder={String(exercise.targetWeightValue)} className="bg-gray-700 p-2 rounded" disabled={exercise.status !== 'pending'} min="0" step="0.5" /></div>) : (<div className="grid grid-cols-2 gap-3"><input type="number" value={exercise.actualTime || ''} onChange={e => onUpdate({ actualTime: e.target.value })} placeholder="Time (min)" className="bg-gray-700 p-2 rounded" disabled={exercise.status !== 'pending'} min="0" /><input type="number" value={exercise.actualDistance || ''} onChange={e => onUpdate({ actualDistance: e.target.value })} placeholder="Distance (km)" className="bg-gray-700 p-2 rounded" disabled={exercise.status !== 'pending'} min="0" /></div>)}<input type="text" value={note || ''} onChange={e => setNote(e.target.value)} onBlur={handleNoteBlur} placeholder={isSkipping ? "Reason for skipping is required" : "Notes"} className={`w-full bg-gray-700 p-2 rounded ${isSkipping ? 'border-2 border-red-500' : ''}`} disabled={exercise.status !== 'pending' && !isSkipping} /></div></div></div></div>
+            <div className="p-4"><div className="flex items-start space-x-2">{exercise.status === 'pending' && <GripVertical className="text-gray-600 mt-2 cursor-grab" />}<input type="checkbox" checked={exercise.status !== 'pending'} onChange={onComplete} className="form-checkbox h-7 w-7 mt-1 bg-gray-700 border-gray-600 rounded text-cyan-500 focus:ring-cyan-500/50 cursor-pointer" disabled={exercise.status !== 'pending'} /><div className="flex-1 min-w-0"><div className="flex justify-between items-center"><div className="flex items-center flex-wrap"><h3 className="text-lg font-semibold text-white">{exercise.name}</h3>{trend}</div><div className="flex items-center space-x-1"><button onClick={onShowVisualAid} className="p-1 text-gray-500 hover:text-cyan-400"><Info size={20} /></button>{exercise.status === 'pending' && <button onClick={onEdit} className="p-1 text-gray-500 hover:text-cyan-400"><Pencil size={18} /></button>}{exercise.status === 'pending' && <button onClick={() => setIsSkipping(true)} className="p-1 text-gray-500 hover:text-red-400"><X size={20} /></button>}{exercise.status !== 'pending' && <button onClick={onUndo} className="p-1 text-gray-500 hover:text-cyan-400" title="Undo"><Undo2 size={20} /></button>}</div></div><p className="text-sm text-gray-400">Target: {exercise.targetSets} of {exercise.targetReps} @ {exercise.targetWeight}</p><div className={`mt-4 space-y-3 ${exercise.status !== 'pending' ? 'opacity-50' : ''}`}>{exercise.type === 'strength' ? (<div className="grid grid-cols-2 gap-3"><input type="text" value={exercise.actualReps || ''} onChange={e => onUpdate({ actualReps: e.target.value })} placeholder={exercise.targetReps || 'e.g., 3x12'} className="bg-gray-700 p-2 rounded" disabled={exercise.status !== 'pending'} /><input type="number" value={exercise.actualWeight || ''} onChange={e => onUpdate({ actualWeight: e.target.value })} placeholder={String(exercise.targetWeightValue)} className="bg-gray-700 p-2 rounded" disabled={exercise.status !== 'pending'} min="0" step="0.5" /></div>) : (<div className="grid grid-cols-2 gap-3"><input type="number" value={exercise.actualTime || ''} onChange={e => onUpdate({ actualTime: e.target.value })} placeholder="Time (min)" className="bg-gray-700 p-2 rounded" disabled={exercise.status !== 'pending'} min="0" /><input type="number" value={exercise.actualDistance || ''} onChange={e => onUpdate({ actualDistance: e.target.value })} placeholder="Distance (km)" className="bg-gray-700 p-2 rounded" disabled={exercise.status !== 'pending'} min="0" /></div>)}<input type="text" value={note || ''} onChange={e => setNote(e.target.value)} onBlur={handleNoteBlur} placeholder={isSkipping ? "Reason for skipping is required" : "Notes"} className={`w-full bg-gray-700 p-2 rounded ${isSkipping ? 'border-2 border-red-500' : ''}`} disabled={exercise.status !== 'pending' && !isSkipping} /></div>{exercise.calories && <div className="mt-2 text-xs text-amber-400 flex items-center"><Flame size={14} className="mr-1.5"/>~{exercise.calories} kcal</div>}</div></div></div>
         </div>
     );
 };
@@ -316,9 +346,40 @@ export default function App() {
         return summary;
     };
     const handleCopySummary = () => { const summaryText = generateSummary(); navigator.clipboard.writeText(summaryText); showToast("Summary copied to clipboard!"); setActiveModal(null); };
-    const completeExercise = (id) => { const dateKey = toYYYYMMDD(currentDate); const exercise = weeklyPlan[dateKey].find(ex => ex.id === id); if (!exercise) return; let newStatus = 'completed'; if (exercise.type === 'strength' && parseFloat(exercise.actualWeight) > exercise.targetWeightValue) newStatus = 'beat-target'; updateExercise(id, { status: newStatus, completedTimestamp: Date.now() }); showToast("Great Job!"); };
+    
+    const fetchCalorieEstimation = async (exercise) => {
+        const prompt = `Estimate the calories burned for this exercise, given a user weight of ${userProfile.weight || 100}kg. Provide only the number. Exercise: ${exercise.name}, Sets: ${exercise.actualReps || exercise.targetSets}, Reps: ${exercise.actualReps || exercise.targetReps}, Weight: ${exercise.actualWeight || exercise.targetWeightValue}kg`;
+        const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }] };
+        const apiKey = firebaseConfig.apiKey;
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+        try {
+            const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            if (!response.ok) throw new Error('API request failed');
+            const result = await response.json();
+            const text = result.candidates[0].content.parts[0].text;
+            const calories = parseInt(text.match(/\d+/)[0]);
+            return calories;
+        } catch (e) {
+            console.error("Calorie estimation failed:", e);
+            return null;
+        }
+    };
+
+    const completeExercise = async (id) => {
+        const dateKey = toYYYYMMDD(currentDate);
+        const exercise = weeklyPlan[dateKey].find(ex => ex.id === id);
+        if (!exercise) return;
+        let newStatus = 'completed';
+        if (exercise.type === 'strength' && parseFloat(exercise.actualWeight) > exercise.targetWeightValue) newStatus = 'beat-target';
+        
+        const calories = await fetchCalorieEstimation(exercise);
+        
+        updateExercise(id, { status: newStatus, calories, completedTimestamp: Date.now() });
+        showToast("Great Job!");
+    };
+    
     const skipExercise = (id, note) => { updateExercise(id, { status: 'skipped', note, completedTimestamp: Date.now() }); showToast("Exercise skipped"); };
-    const undoExercise = (id) => { const dateKey = toYYYYMMDD(currentDate); const exerciseToUndo = weeklyPlan[dateKey].find(ex => ex.id === id); if (!exerciseToUndo) return; updateExercise(id, { status: 'pending', completedTimestamp: null, actualReps: '', actualWeight: '', actualTime: '', actualDistance: '', note: exerciseToUndo.status === 'skipped' ? exerciseToUndo.note : '' }); showToast("Action undone"); };
+    const undoExercise = (id) => { const dateKey = toYYYYMMDD(currentDate); const exerciseToUndo = weeklyPlan[dateKey].find(ex => ex.id === id); if (!exerciseToUndo) return; updateExercise(id, { status: 'pending', completedTimestamp: null, actualReps: '', actualWeight: '', actualTime: '', actualDistance: '', note: exerciseToUndo.status === 'skipped' ? exerciseToUndo.note : '', calories: null }); showToast("Action undone"); };
     const exercisesForDay = useMemo(() => { const dateKey = toYYYYMMDD(currentDate); const exercises = weeklyPlan[dateKey] || []; return [...exercises].sort((a, b) => { const aDone = a.status !== 'pending', bDone = b.status !== 'pending'; if (aDone !== bDone) return aDone - bDone; return (a.completedTimestamp || 0) - (b.completedTimestamp || 0); }); }, [currentDate, weeklyPlan]);
     const isWorkoutComplete = useMemo(() => { if (exercisesForDay.length === 0) return false; return exercisesForDay.every(ex => ex.status !== 'pending'); }, [exercisesForDay]);
     const handleDragStart = (e, item) => setDraggedItem(item);
