@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { ChevronLeft, ChevronRight, User, TrendingUp, X, Camera, Info, Undo2, GripVertical, Pencil, Trash2, Plus, ClipboardList, PartyPopper, ClipboardPlus, LogIn, LogOut, FileText, Loader2, AlertTriangle, Flame } from 'lucide-react';
+import { ChevronLeft, ChevronRight, User, TrendingUp, X, Camera, Info, Undo2, GripVertical, Pencil, Trash2, Plus, ClipboardList, PartyPopper, ClipboardPlus, LogIn, LogOut, FileText, Loader2, AlertTriangle, Flame, BookOpen, ChevronsUpDown, Dumbbell, Repeat, Weight, UploadCloud, Download } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, signInAnonymously, signInWithCustomToken } from 'firebase/auth';
 import { getFirestore, doc, getDoc, setDoc, enableIndexedDbPersistence } from 'firebase/firestore';
 
 // --- FIREBASE SETUP ---
-const firebaseConfig = {
+const fallbackConfig = {
   apiKey: "AIzaSyC1jlts2xQZevR7W71G_6cZvWhzT2MlUqs",
   authDomain: "workout-companion-app.firebaseapp.com",
   projectId: "workout-companion-app",
@@ -16,12 +16,16 @@ const firebaseConfig = {
   measurementId: "G-J84C5N9SXH"
 };
 
+const firebaseConfig = (typeof __firebase_config !== 'undefined' && Object.keys(JSON.parse(__firebase_config)).length > 0)
+  ? JSON.parse(__firebase_config)
+  : fallbackConfig;
+
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const provider = new GoogleAuthProvider();
 
-enableIndexedDbPersistence(db).catch((err) => { if (err.code == 'failed-precondition') { console.warn("Firestore persistence failed: Multiple tabs open."); } else if (err.code == 'unimplemented') { console.warn("Firestore persistence failed: Browser does not support it."); } });
+enableIndexedDbPersistence(db).catch((err) => { if (err.code === 'failed-precondition') { console.warn("Firestore persistence failed: Multiple tabs open."); } else if (err.code === 'unimplemented') { console.warn("Firestore persistence failed: Browser does not support it."); } });
 
 // --- HELPER FUNCTIONS ---
 const toYYYYMMDD = (date) => {
@@ -29,21 +33,6 @@ const toYYYYMMDD = (date) => {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 const formatDate = (date) => date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
-const parseExerciseString = (line) => {
-    const name = line.split(':')[0].trim();
-    const base = { id: Math.random(), name, type: 'strength', targetSets: 'N/A', targetReps: 'N/A', targetWeight: 'N/A', targetWeightValue: 0, actualReps: '', actualWeight: '', actualTime: '', actualDistance: '', note: '', status: 'pending', completedTimestamp: null, calories: null };
-    if (name.toLowerCase().includes('skipping') || name.toLowerCase().includes('treadmill') || name.toLowerCase().includes('basketball') || name.toLowerCase().includes('run')) base.type = 'cardio';
-    if (line.includes('stopped due to')) { base.note = 'Stopped due to' + line.split(' stopped due to')[1]; return base; }
-    const parts = line.split(':');
-    if (parts.length < 2) return base;
-    const details = parts[1].trim();
-    const atSplit = details.split('@');
-    if (atSplit.length > 1) { base.targetWeight = atSplit[1].trim(); base.targetWeightValue = parseFloat(base.targetWeight) || 0; }
-    const setsRepsPart = atSplit[0].trim();
-    const xSplit = setsRepsPart.split('x');
-    if (xSplit.length > 1) { base.targetSets = xSplit[0].trim(); base.targetReps = xSplit[1].trim(); }
-    return base;
-};
 
 // --- MODAL & UI COMPONENTS ---
 const LoginScreen = ({ onLogin }) => (
@@ -55,7 +44,6 @@ const LoginScreen = ({ onLogin }) => (
         </button>
     </div>
 );
-
 const ProfileModal = ({ user, onSave, onClose }) => {
     const [profileData, setProfileData] = useState(user);
     const handleSave = () => { onSave(profileData); onClose(); };
@@ -64,12 +52,11 @@ const ProfileModal = ({ user, onSave, onClose }) => {
         <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50 p-4"><div className="bg-gray-800 text-white rounded-lg p-6 w-full max-w-md"><h2 className="text-2xl font-bold mb-4">Profile</h2><div className="flex items-center space-x-4 mb-6"><div className="relative"><img src={profileData.profilePic || `https://placehold.co/100x100/1f2937/7dd3fc?text=${(profileData.name || ' ').charAt(0)}`} alt="Profile" className="w-24 h-24 rounded-full object-cover" /><label htmlFor="profile-pic-upload" className="absolute bottom-0 right-0 bg-cyan-500 p-1.5 rounded-full cursor-pointer hover:bg-cyan-600"><Camera size={16} /></label><input id="profile-pic-upload" type="file" className="hidden" accept="image/*" onChange={handlePicChange} /></div><input type="text" value={profileData.name || ''} onChange={e => setProfileData({...profileData, name: e.target.value})} placeholder="Your Name" className="bg-gray-700 border-gray-600 rounded p-2 text-xl font-bold w-full" /></div><div className="grid grid-cols-3 gap-4 mb-6"><div><label className="text-xs text-gray-400">Height (cm)</label><input type="number" value={profileData.height || ''} onChange={e => setProfileData({...profileData, height: e.target.value})} placeholder="cm" className="bg-gray-700 border-gray-600 rounded p-2 w-full mt-1" /></div><div><label className="text-xs text-gray-400">Weight (kg)</label><input type="number" value={profileData.weight || ''} onChange={e => setProfileData({...profileData, weight: e.target.value})} placeholder="kg" className="bg-gray-700 border-gray-600 rounded p-2 w-full mt-1" /></div><div><label className="text-xs text-gray-400">Age</label><input type="number" value={profileData.age || ''} onChange={e => setProfileData({...profileData, age: e.target.value})} placeholder="Age" className="bg-gray-700 border-gray-600 rounded p-2 w-full mt-1" /></div></div><div className="flex justify-end space-x-2"><button onClick={onClose} className="bg-gray-600 px-4 py-2 rounded">Cancel</button><button onClick={handleSave} className="bg-cyan-600 px-4 py-2 rounded">Save</button></div></div></div>
     );
 };
-
 const TrendsModal = ({ weeklyPlan, onClose }) => {
     const trendData = useMemo(() => {
         const exerciseHistory = {};
         Object.keys(weeklyPlan).sort().forEach(dateKey => {
-            weeklyPlan[dateKey].forEach(ex => {
+            weeklyPlan[dateKey]?.exercises?.forEach(ex => {
                 if (ex.type === 'strength' && ex.targetWeightValue > 0) {
                     if (!exerciseHistory[ex.name]) exerciseHistory[ex.name] = [];
                     exerciseHistory[ex.name].push({ date: formatDate(new Date(dateKey)), weight: ex.targetWeightValue });
@@ -82,7 +69,6 @@ const TrendsModal = ({ weeklyPlan, onClose }) => {
         <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50 p-4"><div className="bg-gray-800 text-white rounded-lg p-6 w-full max-w-4xl h-[90vh] overflow-y-auto"><div className="flex justify-between items-center mb-4"><h2 className="text-2xl font-bold">Performance Trends</h2><button onClick={onClose} className="p-1 rounded-full hover:bg-gray-700"><X size={24} /></button></div><div className="grid grid-cols-1 lg:grid-cols-2 gap-6">{trendData.length > 0 ? trendData.map(([name, data]) => (<div key={name} className="bg-gray-900 p-4 rounded-lg"><h3 className="font-semibold mb-4 text-center">{name}</h3><ResponsiveContainer width="100%" height={250}><LineChart data={data} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}><CartesianGrid strokeDasharray="3 3" stroke="#4b5563" /><XAxis dataKey="date" stroke="#9ca3af" fontSize={12} /><YAxis stroke="#9ca3af" fontSize={12} domain={['dataMin - 5', 'dataMax + 5']} /><Tooltip contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #4b5563' }} /><Legend /><Line type="monotone" dataKey="weight" stroke="#22d3ee" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 8 }} /></LineChart></ResponsiveContainer></div>)) : <p className="col-span-full text-center text-gray-400">Not enough data to show trends. Complete more workouts!</p>}</div></div></div>
     );
 };
-
 const EditExerciseModal = ({ exercise, onSave, onDelete, onClose }) => {
     const [editedExercise, setEditedExercise] = useState(exercise);
     const [confirmDelete, setConfirmDelete] = useState(false);
@@ -104,7 +90,6 @@ const EditExerciseModal = ({ exercise, onSave, onDelete, onClose }) => {
         <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50 p-4"><div className="bg-gray-800 text-white rounded-lg p-6 w-full max-w-md"><h2 className="text-2xl font-bold mb-4">Edit Exercise</h2><div className="space-y-4"><div><label className="text-xs text-gray-400">Exercise Name</label><input type="text" value={editedExercise.name || ''} onChange={e => handleFieldChange('name', e.target.value)} className="bg-gray-700 p-2 rounded w-full mt-1" /></div><div><label className="text-xs text-gray-400">Target Sets</label><input type="text" value={editedExercise.targetSets || ''} onChange={e => handleFieldChange('targetSets', e.target.value)} className="bg-gray-700 p-2 rounded w-full mt-1" /></div><div><label className="text-xs text-gray-400">Target Reps</label><input type="text" value={editedExercise.targetReps || ''} onChange={e => handleFieldChange('targetReps', e.target.value)} className="bg-gray-700 p-2 rounded w-full mt-1" /></div><div><label className="text-xs text-gray-400">Target Weight (kg)</label><input type="text" value={editedExercise.targetWeight || ''} onChange={e => handleFieldChange('targetWeight', e.target.value)} className="bg-gray-700 p-2 rounded w-full mt-1" placeholder="e.g., 40kg" /></div></div><div className="flex justify-between items-center mt-6"><button onClick={handleDeleteClick} className={`px-4 py-2 rounded flex items-center transition-colors ${confirmDelete ? 'bg-red-600' : 'bg-red-900/50 hover:bg-red-900'}`}><Trash2 size={16} className="mr-2" /> {confirmDelete ? 'Confirm Delete?' : 'Delete'}</button><div className="space-x-2"><button onClick={onClose} className="bg-gray-600 px-4 py-2 rounded">Cancel</button><button onClick={handleSave} className="bg-cyan-600 px-4 py-2 rounded">Save Changes</button></div></div></div></div>
     );
 };
-
 const AddExerciseModal = ({ onAdd, onClose }) => {
     const [newExercise, setNewExercise] = useState({ name: '', type: 'strength', targetSets: '3', targetReps: '12', targetWeight: '10' });
     const handleFieldChange = (field, value) => setNewExercise(prev => ({ ...prev, [field]: value }));
@@ -113,85 +98,94 @@ const AddExerciseModal = ({ onAdd, onClose }) => {
         <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50 p-4"><div className="bg-gray-800 text-white rounded-lg p-6 w-full max-w-md"><h2 className="text-2xl font-bold mb-4">Add New Exercise</h2><div className="space-y-4"><div><label className="text-xs text-gray-400">Exercise Name</label><input type="text" value={newExercise.name} onChange={e => handleFieldChange('name', e.target.value)} className="bg-gray-700 p-2 rounded w-full mt-1" /></div><div><label className="text-xs text-gray-400">Exercise Type</label><select value={newExercise.type} onChange={e => handleFieldChange('type', e.target.value)} className="bg-gray-700 p-2 rounded w-full mt-1"><option value="strength">Strength</option><option value="cardio">Cardio</option></select></div>{newExercise.type === 'strength' && (<><div><label className="text-xs text-gray-400">Target Sets</label><input type="number" value={newExercise.targetSets} onChange={e => handleFieldChange('targetSets', e.target.value)} className="bg-gray-700 p-2 rounded w-full mt-1" /></div><div><label className="text-xs text-gray-400">Target Reps</label><input type="number" value={newExercise.targetReps} onChange={e => handleFieldChange('targetReps', e.target.value)} className="bg-gray-700 p-2 rounded w-full mt-1" /></div><div><label className="text-xs text-gray-400">Target Weight (kg)</label><input type="number" value={newExercise.targetWeight} onChange={e => handleFieldChange('targetWeight', e.target.value)} className="bg-gray-700 p-2 rounded w-full mt-1" step="0.5" /></div></>)}</div><div className="flex justify-end space-x-2 mt-6"><button onClick={onClose} className="bg-gray-600 px-4 py-2 rounded">Cancel</button><button onClick={handleAdd} className="bg-cyan-600 px-4 py-2 rounded">Add Exercise</button></div></div></div>
     );
 };
-
 const SummaryModal = ({ summary, onClose, onCopy }) => (
     <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50 p-4"><div className="bg-gray-800 text-white rounded-lg p-6 w-full max-w-lg"><h2 className="text-2xl font-bold mb-4">Workout Summary</h2><textarea readOnly value={summary} className="w-full h-64 bg-gray-900 text-gray-200 rounded-lg p-3 border border-gray-600"></textarea><div className="flex justify-end space-x-2 mt-4"><button onClick={onClose} className="bg-gray-600 px-4 py-2 rounded">Close</button><button onClick={onCopy} className="bg-green-600 px-4 py-2 rounded">Copy to Clipboard</button></div></div></div>
 );
-
-const ImportModal = ({ existingPlan, onImport, onClose }) => {
-    const [rawText, setRawText] = useState('');
-    const [parsedData, setParsedData] = useState(null);
+const CSVImportModal = ({ onImport, onClose }) => {
+    const [file, setFile] = useState(null);
     const [error, setError] = useState('');
-    const [resolutions, setResolutions] = useState({});
 
-    const exampleText = `Jul 16\nUpper Body A (Elbow Safe):\n• Machine Chest Press: 3x12-15\n• Seated Cable Row: 3x10-12`;
-
-    const sanitizeAndParseText = (text) => {
-        const cleanedText = text
-            .replace(/<br\s*\/?>/gi, '\n')
-            .replace(/[\*•-]/g, '\n• ')
-            .replace(/\u00a0/g, ' ')
-            .replace(/[\t]+/g, ' ')
-            .replace(/\s{2,}/g, ' ')
-            .replace(/\n\s*\n/g, '\n')
-            .trim();
-
-        const lines = cleanedText.split('\n');
-        const workoutsByDate = {};
-        let currentDate = null;
-        const currentYear = new Date().getFullYear();
-
-        lines.forEach(line => {
-            line = line.trim();
-            if (!line) return;
-
-            const dateMatch = line.match(/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s(\d{1,2})/i);
-            if (dateMatch) {
-                const dateStr = `${dateMatch[0]} ${currentYear}`;
-                const parsedDate = new Date(dateStr);
-                if (!isNaN(parsedDate)) {
-                    currentDate = toYYYYMMDD(parsedDate);
-                    workoutsByDate[currentDate] = [];
-                    return;
-                }
-            }
-            
-            // If a line doesn't start with a bullet but we have a date, treat it as part of the workout
-            if (currentDate && !line.startsWith('•')) {
-                 workoutsByDate[currentDate].push(line);
-            } else if (currentDate && line.startsWith('•')) {
-                workoutsByDate[currentDate].push(line.substring(1).trim());
-            }
-        });
-        return workoutsByDate;
-    };
-
-    const handlePreview = () => {
+    const handleFileChange = (e) => {
         setError('');
-        try {
-            const parsed = sanitizeAndParseText(rawText);
-            if (Object.keys(parsed).length === 0) {
-                setError("Could not find any valid dates or exercises. Please check the format.");
-                return;
-            }
-            const initialResolutions = {};
-            Object.keys(parsed).forEach(dateKey => { if (existingPlan[dateKey]) { initialResolutions[dateKey] = 'skip'; } });
-            setResolutions(initialResolutions);
-            setParsedData(parsed);
-        } catch (e) {
-            console.error(e);
-            setError("Failed to parse the workout plan. Please check the format and try again.");
+        const selectedFile = e.target.files[0];
+        if (selectedFile && selectedFile.type === "text/csv") {
+            setFile(selectedFile);
+        } else {
+            setError("Please select a valid .csv file.");
+            setFile(null);
         }
     };
 
-    const handleResolutionChange = (dateKey, resolution) => setResolutions(prev => ({ ...prev, [dateKey]: resolution }));
-    const handleConfirmImport = () => { onImport(parsedData, resolutions); onClose(); };
+    const handleImport = () => {
+        if (!file) {
+            setError("Please select a file to import.");
+            return;
+        }
+        if (typeof Papa === 'undefined') {
+            setError("Parsing library not available. Please ensure you've added the Papaparse script to your HTML.");
+            return;
+        }
+
+        Papa.parse(file, {
+            header: true,
+            skipEmptyLines: true,
+            complete: (results) => {
+                if(results.errors.length > 0) {
+                    setError("Error parsing CSV. Please check the file format.");
+                    console.error("CSV Parsing Errors:", results.errors);
+                    return;
+                }
+                onImport(results.data);
+                onClose();
+            },
+            error: (err) => {
+                setError("An unexpected error occurred during parsing.");
+                console.error(err);
+            }
+        });
+    };
+    
+    const csvTemplate = "date,exerciseName,type,targetSets,targetReps,targetWeight,sessionNotes\n2025-07-20,Squats,strength,5,5,100kg,\n2025-07-20,Bench Press,strength,5,5,80kg,\n2025-07-21,Treadmill,cardio,1,30min,5km,Focus on cardio endurance today.";
+    const downloadTemplate = () => {
+        const blob = new Blob([csvTemplate], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", "workout_template.csv");
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
 
     return (
-        <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50 p-4"><div className="bg-gray-800 text-white rounded-lg p-6 w-full max-w-2xl"><h2 className="text-2xl font-bold mb-4">Import from Text</h2>{!parsedData ? (<><p className="text-gray-400 mb-4">Paste your workout plan below. Use clear dates and list exercises for each day.</p><textarea value={rawText} onChange={e => setRawText(e.target.value)} placeholder={exampleText} className="w-full h-64 bg-gray-900 text-gray-200 rounded-lg p-3 border border-gray-600 focus:border-cyan-500"></textarea>{error && <p className="text-red-400 mt-2">{error}</p>}<div className="flex justify-end space-x-2 mt-4"><button onClick={onClose} className="bg-gray-600 px-4 py-2 rounded">Cancel</button><button onClick={handlePreview} disabled={!rawText} className="bg-cyan-600 px-4 py-2 rounded disabled:opacity-50 flex items-center">Preview Import</button></div></>) : (<><h3 className="text-lg font-semibold mb-2">Import Preview</h3><p className="text-gray-400 mb-4">Review the parsed workouts and resolve any conflicts.</p><div className="max-h-80 overflow-y-auto space-y-4 pr-2">{Object.entries(parsedData).map(([dateKey, exercises]) => (<div key={dateKey} className={`p-3 rounded-lg ${existingPlan[dateKey] ? 'bg-yellow-900/50 border border-yellow-700' : 'bg-gray-900'}`}><h4 className="font-bold">{formatDate(new Date(dateKey + 'T00:00:00'))}</h4>{existingPlan[dateKey] && (<div className="flex items-center space-x-4 my-2 text-sm"><span className="text-yellow-400 flex items-center"><AlertTriangle size={16} className="mr-2"/> Conflict: Data already exists for this day.</span><div><label className="mr-2"><input type="radio" name={`resolve-${dateKey}`} value="skip" checked={resolutions[dateKey] === 'skip'} onChange={() => handleResolutionChange(dateKey, 'skip')} /> Skip</label><label><input type="radio" name={`resolve-${dateKey}`} value="override" checked={resolutions[dateKey] === 'override'} onChange={() => handleResolutionChange(dateKey, 'override')} /> Override</label></div></div>)}<ul className="list-disc list-inside text-gray-300 text-sm pl-2">{exercises.map((ex, i) => <li key={i}>{ex}</li>)}</ul></div>))}</div><div className="flex justify-end space-x-2 mt-6"><button onClick={() => setParsedData(null)} className="bg-gray-600 px-4 py-2 rounded">Back</button><button onClick={handleConfirmImport} className="bg-green-600 px-4 py-2 rounded">Confirm & Import</button></div></>)}</div></div>
+        <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50 p-4">
+            <div className="bg-gray-800 text-white rounded-lg p-6 w-full max-w-lg">
+                <h2 className="text-2xl font-bold mb-4">Import from CSV</h2>
+                <div className="bg-gray-900 p-4 rounded-md mb-4">
+                    <p className="text-sm text-gray-300 mb-2">Upload a CSV file with the following columns:</p>
+                    <code className="text-xs text-cyan-300 bg-black/30 p-2 rounded-md block whitespace-pre-wrap">date, exerciseName, type, targetSets, targetReps, targetWeight, sessionNotes</code>
+                     <button onClick={downloadTemplate} className="mt-3 text-sm text-cyan-400 hover:underline flex items-center gap-2">
+                        <Download size={16}/>
+                        Download Template
+                    </button>
+                </div>
+                <div className="mt-4">
+                    <label className="w-full flex items-center justify-center px-4 py-6 bg-gray-700 text-gray-400 rounded-lg shadow-lg tracking-wide uppercase border border-dashed border-gray-500 cursor-pointer hover:bg-gray-600 hover:text-white">
+                        <UploadCloud size={32} className="mr-4"/>
+                        <span className="text-base">{file ? file.name : 'Select a .csv file'}</span>
+                        <input type='file' className="hidden" accept=".csv" onChange={handleFileChange} />
+                    </label>
+                </div>
+                {error && <p className="text-red-400 mt-2 text-sm">{error}</p>}
+                <div className="flex justify-end space-x-2 mt-6">
+                    <button onClick={onClose} className="bg-gray-600 px-4 py-2 rounded">Cancel</button>
+                    <button onClick={handleImport} disabled={!file} className="bg-green-600 px-4 py-2 rounded disabled:opacity-50">Import</button>
+                </div>
+            </div>
+        </div>
     );
 };
-
 const VisualAidModal = ({ exercise, onClose, onDescriptionFetched, cachedDescription }) => {
     const [description, setDescription] = useState(cachedDescription || '');
     const [isLoading, setIsLoading] = useState(!cachedDescription);
@@ -225,10 +219,11 @@ const VisualAidModal = ({ exercise, onClose, onDescriptionFetched, cachedDescrip
         <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50 p-4"><div className="bg-gray-800 rounded-xl shadow-2xl w-full max-w-md"><div className="p-6"><h2 className="text-2xl font-bold text-white mb-4 text-center">{exercise.name}</h2><div className="min-h-[10rem] bg-gray-900 rounded-lg p-4 text-gray-300">{isLoading ? <div className="flex justify-center items-center h-full"><Loader2 className="animate-spin" /></div> : error || description}</div><button onClick={onClose} className="mt-4 w-full bg-gray-600 hover:bg-gray-500 text-white font-bold py-3 px-4 rounded-lg">Close</button></div></div></div>
     );
 };
-
-const ExerciseItem = ({ exercise, onUpdate, onComplete, onSkip, onUndo, onEdit, onShowVisualAid, trend, onDragStart, onDragOver, onDrop, onDragEnd, isDragging }) => {
+const ExerciseItem = ({ exercise, onUpdate, onSetUpdate, onComplete, onSkip, onUndo, onEdit, onShowVisualAid, trend, onDragStart, onDragOver, onDrop, onDragEnd, isDragging }) => {
     const [note, setNote] = useState(exercise.note);
     const [isSkipping, setIsSkipping] = useState(false);
+    const [isExpanded, setIsExpanded] = useState(false);
+
     const handleNoteBlur = () => {
         if (isSkipping && note.trim() !== '') {
             onSkip(note);
@@ -237,12 +232,114 @@ const ExerciseItem = ({ exercise, onUpdate, onComplete, onSkip, onUndo, onEdit, 
             onUpdate({ note });
         }
     };
+
+    const handleExpandClick = () => {
+        if (!isExpanded && exercise.type === 'strength' && exercise.actualSets.length === 0) {
+            const numSets = parseInt(exercise.targetSets) || 0;
+            const reps = exercise.targetReps?.split('-')[0].trim() || '';
+            const weight = exercise.targetWeightValue || '';
+            const defaultSets = Array.from({ length: numSets }, () => ({ reps, weight }));
+            onUpdate({ actualSets: defaultSets });
+        }
+        setIsExpanded(!isExpanded);
+    };
+
+    const targetSetsCount = parseInt(exercise.targetSets) || 0;
+
     return (
         <div draggable={exercise.status === 'pending'} onDragStart={onDragStart} onDragOver={onDragOver} onDrop={onDrop} onDragEnd={onDragEnd} className={`bg-gray-800 rounded-lg shadow-md exercise-item transition-all duration-300 status-${exercise.status} ${isDragging ? 'opacity-50' : 'opacity-100'}`}>
-            <div className="p-4"><div className="flex items-start space-x-2">{exercise.status === 'pending' && <GripVertical className="text-gray-600 mt-2 cursor-grab" />}<input type="checkbox" checked={exercise.status !== 'pending'} onChange={onComplete} className="form-checkbox h-7 w-7 mt-1 bg-gray-700 border-gray-600 rounded text-cyan-500 focus:ring-cyan-500/50 cursor-pointer" disabled={exercise.status !== 'pending'} /><div className="flex-1 min-w-0"><div className="flex justify-between items-center"><div className="flex items-center flex-wrap"><h3 className="text-lg font-semibold text-white">{exercise.name}</h3>{trend}</div><div className="flex items-center space-x-1"><button onClick={onShowVisualAid} className="p-1 text-gray-500 hover:text-cyan-400"><Info size={20} /></button>{exercise.status === 'pending' && <button onClick={onEdit} className="p-1 text-gray-500 hover:text-cyan-400"><Pencil size={18} /></button>}{exercise.status === 'pending' && <button onClick={() => setIsSkipping(true)} className="p-1 text-gray-500 hover:text-red-400"><X size={20} /></button>}{exercise.status !== 'pending' && <button onClick={onUndo} className="p-1 text-gray-500 hover:text-cyan-400" title="Undo"><Undo2 size={20} /></button>}</div></div><p className="text-sm text-gray-400">Target: {exercise.targetSets} of {exercise.targetReps} @ {exercise.targetWeight}</p><div className={`mt-4 space-y-3 ${exercise.status !== 'pending' ? 'opacity-50' : ''}`}>{exercise.type === 'strength' ? (<div className="grid grid-cols-2 gap-3"><input type="text" value={exercise.actualReps || ''} onChange={e => onUpdate({ actualReps: e.target.value })} placeholder={exercise.targetReps || 'e.g., 3x12'} className="bg-gray-700 p-2 rounded" disabled={exercise.status !== 'pending'} /><input type="number" value={exercise.actualWeight || ''} onChange={e => onUpdate({ actualWeight: e.target.value })} placeholder={String(exercise.targetWeightValue)} className="bg-gray-700 p-2 rounded" disabled={exercise.status !== 'pending'} min="0" step="0.5" /></div>) : (<div className="grid grid-cols-2 gap-3"><input type="number" value={exercise.actualTime || ''} onChange={e => onUpdate({ actualTime: e.target.value })} placeholder="Time (min)" className="bg-gray-700 p-2 rounded" disabled={exercise.status !== 'pending'} min="0" /><input type="number" value={exercise.actualDistance || ''} onChange={e => onUpdate({ actualDistance: e.target.value })} placeholder="Distance (km)" className="bg-gray-700 p-2 rounded" disabled={exercise.status !== 'pending'} min="0" /></div>)}<input type="text" value={note || ''} onChange={e => setNote(e.target.value)} onBlur={handleNoteBlur} placeholder={isSkipping ? "Reason for skipping is required" : "Notes"} className={`w-full bg-gray-700 p-2 rounded ${isSkipping ? 'border-2 border-red-500' : ''}`} disabled={exercise.status !== 'pending' && !isSkipping} /></div>{exercise.calories && <div className="mt-2 text-xs text-amber-400 flex items-center"><Flame size={14} className="mr-1.5"/>~{exercise.calories} kcal</div>}</div></div></div>
+            <div className="p-4"><div className="flex items-start space-x-4"><input type="checkbox" checked={exercise.status !== 'pending'} onChange={onComplete} className="form-checkbox h-7 w-7 mt-1 bg-gray-700 border-gray-600 rounded text-cyan-500 focus:ring-cyan-500/50 cursor-pointer" disabled={exercise.status !== 'pending'} /><div className="flex-1 min-w-0"><div className="flex justify-between items-center"><div className="flex items-center flex-wrap"><h3 className="text-lg font-semibold text-white">{exercise.name}</h3>{trend}</div><div className="flex items-center space-x-1">{exercise.type === 'strength' && <button onClick={handleExpandClick} className="p-1 text-gray-500 hover:text-cyan-400"><ChevronsUpDown size={20} /></button>}<button onClick={onShowVisualAid} className="p-1 text-gray-500 hover:text-cyan-400"><Info size={20} /></button>{exercise.status === 'pending' && <button onClick={onEdit} className="p-1 text-gray-500 hover:text-cyan-400"><Pencil size={18} /></button>}{exercise.status === 'pending' && <button onClick={() => setIsSkipping(true)} className="p-1 text-gray-500 hover:text-red-400"><X size={20} /></button>}{exercise.status !== 'pending' && <button onClick={onUndo} className="p-1 text-gray-500 hover:text-cyan-400" title="Undo"><Undo2 size={20} /></button>}</div></div>
+            
+            <div className="mt-2 p-3 bg-gray-900/50 rounded-md">
+                <div className="grid grid-cols-3 gap-4 text-center">
+                    <div><div className="text-xs text-gray-400">Sets</div><div className="text-lg font-bold text-white">{exercise.targetSets}</div></div>
+                    <div><div className="text-xs text-gray-400">Reps</div><div className="text-lg font-bold text-white">{exercise.targetReps}</div></div>
+                    <div><div className="text-xs text-gray-400">Weight</div><div className="text-lg font-bold text-white">{exercise.targetWeight || 'Bodyweight'}</div></div>
+                </div>
+
+                {isExpanded && exercise.type === 'strength' && (
+                    <div className="mt-4 pt-4 border-t border-gray-700 space-y-2">
+                        {Array.from({ length: targetSetsCount }).map((_, setIndex) => (
+                            <div key={setIndex} className="grid grid-cols-[auto,1fr,1fr] gap-x-3 items-center">
+                                <span className="text-sm font-medium text-gray-400">Set {setIndex + 1}</span>
+                                <input type="number" value={exercise.actualSets[setIndex]?.reps ?? ''} onChange={e => onSetUpdate(setIndex, 'reps', e.target.value)} placeholder="Reps" className="bg-gray-700 p-2 rounded w-full text-center" disabled={exercise.status !== 'pending'} />
+                                <input type="number" value={exercise.actualSets[setIndex]?.weight ?? ''} onChange={e => onSetUpdate(setIndex, 'weight', e.target.value)} placeholder="kg" className="bg-gray-700 p-2 rounded w-full text-center" disabled={exercise.status !== 'pending'} step="0.5" />
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {exercise.type === 'cardio' && (
+                     <div className={`mt-4 grid grid-cols-2 gap-3 ${exercise.status !== 'pending' ? 'opacity-50' : ''}`}>
+                        <input type="number" value={exercise.actualTime || ''} onChange={e => onUpdate({ actualTime: e.target.value })} placeholder="Time (min)" className="bg-gray-700 p-2 rounded" disabled={exercise.status !== 'pending'} min="0" />
+                        <input type="number" value={exercise.actualDistance || ''} onChange={e => onUpdate({ actualDistance: e.target.value })} placeholder="Distance (km)" className="bg-gray-700 p-2 rounded" disabled={exercise.status !== 'pending'} min="0" />
+                    </div>
+                )}
+
+                <div className={`mt-4 flex items-center gap-4 ${exercise.status !== 'pending' ? 'opacity-50' : ''}`}>
+                    <input type="text" value={note || ''} onChange={e => setNote(e.target.value)} onBlur={handleNoteBlur} placeholder={isSkipping ? "Reason for skipping is required" : "Notes"} className={`flex-grow bg-gray-700 p-2 rounded ${isSkipping ? 'border-2 border-red-500' : ''}`} disabled={exercise.status !== 'pending' && !isSkipping} />
+                     {exercise.calories && <div className="text-sm text-amber-400 flex items-center flex-shrink-0"><Flame size={14} className="mr-1.5"/>~{exercise.calories} kcal</div>}
+                </div>
+            </div>
+            
+            </div></div></div>
         </div>
     );
 };
+
+const SessionNotesModal = ({ notes, onSave, onClose }) => {
+    const [sessionNotes, setSessionNotes] = useState(notes || '');
+    const handleSave = () => { onSave(sessionNotes); onClose(); };
+    return (
+        <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50 p-4">
+            <div className="bg-gray-800 text-white rounded-lg p-6 w-full max-w-md">
+                <h2 className="text-2xl font-bold mb-4">Session Briefing</h2>
+                <p className="text-sm text-gray-400 mb-4">Add notes for the entire workout session. Perfect for coach instructions or personal reminders.</p>
+                <textarea value={sessionNotes} onChange={(e) => setSessionNotes(e.target.value)} placeholder="e.g., Focus on form, don't go too heavy today." className="w-full h-40 bg-gray-900 text-gray-200 rounded-lg p-3 border border-gray-600 focus:border-cyan-500" />
+                <div className="flex justify-end space-x-2 mt-6">
+                    <button onClick={onClose} className="bg-gray-600 px-4 py-2 rounded">Cancel</button>
+                    <button onClick={handleSave} className="bg-cyan-600 px-4 py-2 rounded">Save Notes</button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const WorkoutSummaryStats = ({ stats }) => {
+    if (!stats || stats.exerciseCount === 0) return null;
+    return (
+        <div className="bg-gray-800 p-4 rounded-lg mb-6">
+            <div className="grid grid-cols-3 gap-4 text-center">
+                <div>
+                    <div className="text-xs text-gray-400 uppercase tracking-wider">Exercises</div>
+                    <div className="text-2xl font-bold text-white flex items-center justify-center gap-2">
+                        <Dumbbell className="text-cyan-400" size={20}/>
+                        {stats.exerciseCount}
+                    </div>
+                </div>
+                {stats.totalVolume > 0 && 
+                    <div>
+                        <div className="text-xs text-gray-400 uppercase tracking-wider">Volume</div>
+                        <div className="text-2xl font-bold text-white flex items-center justify-center gap-2">
+                            <Weight className="text-cyan-400" size={20}/>
+                            {stats.totalVolume.toLocaleString()} <span className="text-base font-normal text-gray-400">kg</span>
+                        </div>
+                    </div>
+                }
+                {stats.totalCalories > 0 &&
+                    <div>
+                        <div className="text-xs text-gray-400 uppercase tracking-wider">Calories</div>
+                        <div className="text-2xl font-bold text-white flex items-center justify-center gap-2">
+                            <Flame className="text-amber-400" size={20}/>
+                            {stats.totalCalories}
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    );
+};
+
 
 // --- MAIN APP COMPONENT ---
 export default function App() {
@@ -258,12 +355,13 @@ export default function App() {
     const [dropTarget, setDropTarget] = useState(null);
     const [loading, setLoading] = useState(true);
     const [exerciseDescriptions, setExerciseDescriptions] = useState({});
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             if (user) {
                 setCurrentUser(user);
-                const userDocRef = doc(db, 'users', user.uid);
+                const userDocRef = doc(db, 'artifacts', appId, 'users', user.uid);
                 const userDocSnap = await getDoc(userDocRef);
                 if (userDocSnap.exists()) {
                     const data = userDocSnap.data();
@@ -271,76 +369,170 @@ export default function App() {
                     setWeeklyPlan(data.workouts || {});
                     setExerciseDescriptions(data.descriptions || {});
                 } else {
-                    const profile = { name: user.displayName, email: user.email, profilePic: user.photoURL };
+                    const profile = { name: user.displayName || 'New User', email: user.email, profilePic: user.photoURL };
                     await setDoc(userDocRef, { profile, workouts: {}, descriptions: {} });
                     setUserProfile(profile);
-                    setWeeklyPlan({});
-                    setExerciseDescriptions({});
                 }
             } else {
                 setCurrentUser(null);
                 setWeeklyPlan({});
+                setUserProfile({ name: '', height: '', weight: '', age: '', profilePic: null });
             }
             setLoading(false);
         });
-        return () => unsubscribe();
-    }, []);
 
+        const performInitialSignIn = async () => {
+            if (!auth.currentUser) {
+                 try {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                       await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                       await signInAnonymously(auth);
+                    }
+                } catch (error) {
+                    console.error("Initial sign-in failed:", error);
+                }
+            }
+        };
+
+        performInitialSignIn();
+        return () => unsubscribe();
+    }, [appId]);
+    
     const showToast = (message) => { setToast({ show: true, message }); setTimeout(() => setToast({ show: false, message: '' }), 2000); };
-    const handleLogin = async () => { try { await signInWithPopup(auth, provider); } catch (error) { console.error("Authentication error:", error); } };
-    const handleLogout = async () => { await signOut(auth); };
-    const updateFirestore = async (data) => { if (!currentUser) return; const userDocRef = doc(db, 'users', currentUser.uid); await setDoc(userDocRef, data, { merge: true }); };
-    const updateExercise = (id, updatedFields) => {
-        const dateKey = toYYYYMMDD(currentDate);
-        const newExercises = weeklyPlan[dateKey].map(ex => ex.id === id ? { ...ex, ...updatedFields } : ex);
-        const newWeeklyPlan = { ...weeklyPlan, [dateKey]: newExercises };
+    
+    const handleLogin = async () => { 
+        setLoading(true);
+        try { 
+            await signInWithPopup(auth, provider); 
+        } catch (error) { 
+            console.error("Authentication error:", error); 
+            setLoading(false);
+        } 
+    };
+
+    const handleLogout = async () => { 
+        await signOut(auth);
+    };
+
+    const updateFirestore = async (data) => {
+        if (!currentUser) return;
+        const userDocRef = doc(db, 'artifacts', appId, 'users', currentUser.uid);
+        await setDoc(userDocRef, data, { merge: true });
+    };
+
+    const updateDayData = (dateKey, newDayData) => {
+        const newWeeklyPlan = { ...weeklyPlan, [dateKey]: newDayData };
         setWeeklyPlan(newWeeklyPlan);
         updateFirestore({ workouts: newWeeklyPlan });
     };
+
+    const handleSetUpdate = (exerciseId, setIndex, field, value) => {
+        const dateKey = toYYYYMMDD(currentDate);
+        const dayData = weeklyPlan[dateKey] || { exercises: [], sessionNotes: '' };
+
+        const newExercises = dayData.exercises.map(ex => {
+            if (ex.id === exerciseId) {
+                const newActualSets = [...(ex.actualSets || [])];
+                
+                while(newActualSets.length <= setIndex) {
+                    newActualSets.push({ reps: '', weight: '' });
+                }
+                
+                newActualSets[setIndex] = {
+                    ...newActualSets[setIndex],
+                    [field]: value
+                };
+
+                return { ...ex, actualSets: newActualSets };
+            }
+            return ex;
+        });
+
+        updateDayData(dateKey, { ...dayData, exercises: newExercises });
+    };
+
+    const updateExercise = (id, updatedFields) => {
+        const dateKey = toYYYYMMDD(currentDate);
+        const dayData = weeklyPlan[dateKey] || { exercises: [], sessionNotes: '' };
+        const newExercises = dayData.exercises.map(ex => ex.id === id ? { ...ex, ...updatedFields } : ex);
+        updateDayData(dateKey, { ...dayData, exercises: newExercises });
+    };
+
     const handleSaveProfile = (newProfile) => { setUserProfile(newProfile); updateFirestore({ profile: newProfile }); };
-    const findPreviousWeight = (exerciseName, forDate) => { let searchDate = new Date(forDate); for (let i = 0; i < 30; i++) { searchDate.setDate(searchDate.getDate() - 1); const dateKey = toYYYYMMDD(searchDate); if (weeklyPlan[dateKey]) { const found = weeklyPlan[dateKey].find(ex => ex.name === exerciseName); if (found) return found.targetWeightValue; } } return null; };
+    const findPreviousWeight = (exerciseName, forDate) => { let searchDate = new Date(forDate); for (let i = 0; i < 30; i++) { searchDate.setDate(searchDate.getDate() - 1); const dateKey = toYYYYMMDD(searchDate); if (weeklyPlan[dateKey]?.exercises) { const found = weeklyPlan[dateKey].exercises.find(ex => ex.name === exerciseName); if (found) return found.targetWeightValue; } } return null; };
     const handleEditExercise = (exercise) => { setEditingExercise(exercise); setActiveModal('edit'); };
     const handleSaveEditedExercise = (editedExercise) => { updateExercise(editedExercise.id, editedExercise); showToast("Exercise updated!"); };
     const handleDeleteExercise = (id) => {
         const dateKey = toYYYYMMDD(currentDate);
-        const newExercises = weeklyPlan[dateKey].filter(ex => ex.id !== id);
-        const newWeeklyPlan = { ...weeklyPlan, [dateKey]: newExercises };
-        setWeeklyPlan(newWeeklyPlan);
-        updateFirestore({ workouts: newWeeklyPlan });
+        const dayData = weeklyPlan[dateKey];
+        const newExercises = dayData.exercises.filter(ex => ex.id !== id);
+        updateDayData(dateKey, { ...dayData, exercises: newExercises });
         showToast("Exercise deleted");
     };
     const handleAddExercise = (newExerciseData) => {
         const dateKey = toYYYYMMDD(currentDate);
-        const newExercise = { ...parseExerciseString(`${newExerciseData.name}: ${newExerciseData.targetSets}x${newExerciseData.targetReps} @ ${newExerciseData.targetWeight}`), type: newExerciseData.type };
-        const currentExercises = weeklyPlan[dateKey] || [];
-        const newWeeklyPlan = { ...weeklyPlan, [dateKey]: [...currentExercises, newExercise] };
-        setWeeklyPlan(newWeeklyPlan);
-        updateFirestore({ workouts: newWeeklyPlan });
+        const newExercise = { id: Math.random(), ...newExerciseData, actualSets: [], note: '', status: 'pending', completedTimestamp: null, calories: null, targetWeightValue: parseFloat(newExerciseData.targetWeight) || 0 };
+        const dayData = weeklyPlan[dateKey] || { exercises: [], sessionNotes: '' };
+        const newExercises = [...dayData.exercises, newExercise];
+        updateDayData(dateKey, { ...dayData, exercises: newExercises });
         showToast("Exercise added!");
     };
-    const handleImportConfirm = (parsedData, resolutions) => {
+    const handleImportConfirm = (csvData) => {
         const newPlan = { ...weeklyPlan };
-        Object.entries(parsedData).forEach(([dateKey, exercises]) => {
-            if (resolutions[dateKey] !== 'skip') {
-                newPlan[dateKey] = exercises.map(parseExerciseString);
+
+        csvData.forEach(row => {
+            const dateKey = toYYYYMMDD(new Date(row.date));
+            if (!dateKey) return;
+
+            if (!newPlan[dateKey]) {
+                newPlan[dateKey] = { exercises: [], sessionNotes: '' };
             }
+            if(row.sessionNotes && !newPlan[dateKey].sessionNotes) {
+                 newPlan[dateKey].sessionNotes = row.sessionNotes;
+            }
+
+            const newExercise = {
+                id: Math.random(),
+                name: row.exerciseName,
+                type: row.type || 'strength',
+                targetSets: row.targetSets || 'N/A',
+                targetReps: row.targetReps || 'N/A',
+                targetWeight: row.targetWeight || 'N/A',
+                targetWeightValue: parseFloat(row.targetWeight) || 0,
+                actualSets: [],
+                note: '',
+                status: 'pending',
+                completedTimestamp: null,
+                calories: null
+            };
+            newPlan[dateKey].exercises.push(newExercise);
         });
+
         setWeeklyPlan(newPlan);
         updateFirestore({ workouts: newPlan });
         showToast("Plan imported successfully!");
     };
     const generateSummary = () => {
-        const exercisesForDay = weeklyPlan[toYYYYMMDD(currentDate)] || [];
-        let summary = `Workout Summary for ${formatDate(currentDate)}:\n\n`;
-        exercisesForDay.forEach(ex => {
+        const dayData = weeklyPlan[toYYYYMMDD(currentDate)];
+        if (!dayData) return "No workout for today.";
+        let summary = `Workout Summary for ${formatDate(currentDate)}:\n`;
+        if(dayData.sessionNotes) summary += `\nCoach's Notes: ${dayData.sessionNotes}\n`;
+        summary += "\n";
+        dayData.exercises.forEach(ex => {
             if (ex.status === 'pending') return;
             summary += `• ${ex.name}: `;
-            if (ex.status === 'completed') summary += `Completed.`;
-            if (ex.status === 'beat-target') summary += `Completed (Beat Target!).`;
+            if (ex.status === 'completed' || ex.status === 'completed-under') summary += `Completed.`;
             if (ex.status === 'skipped') { summary += `Skipped. Notes: ${ex.note || 'No reason given.'}\n`; return; }
-            if (ex.type === 'strength') { const sets = ex.targetSets; const reps = ex.actualReps || ex.targetReps; const weight = ex.actualWeight ? `${ex.actualWeight}kg` : ex.targetWeight; summary += ` Sets: ${sets}, Reps: ${reps}, Weight: ${weight}.`; }
+            if (ex.type === 'strength' && ex.actualSets && ex.actualSets.length > 0) {
+                const setsSummary = ex.actualSets.map(s => `${s.reps || '_'}x${s.weight || '_'}kg`).join(', ');
+                summary += ` ${setsSummary}.`;
+            } else if (ex.type === 'strength') {
+                summary += ` ${ex.targetSets}x${ex.targetReps} @ ${ex.targetWeight}.`;
+            }
             else { if (ex.actualTime) summary += ` Time: ${ex.actualTime} min.`; if (ex.actualDistance) summary += ` Distance: ${ex.actualDistance} km.`; }
             if (ex.note) summary += ` Notes: ${ex.note}.`;
+            if (ex.calories) summary += ` (~${ex.calories} kcal)`;
             summary += '\n';
         });
         return summary;
@@ -367,52 +559,122 @@ export default function App() {
 
     const completeExercise = async (id) => {
         const dateKey = toYYYYMMDD(currentDate);
-        const exercise = weeklyPlan[dateKey].find(ex => ex.id === id);
+        const exercise = weeklyPlan[dateKey].exercises.find(ex => ex.id === id);
         if (!exercise) return;
-        let newStatus = 'completed';
-        if (exercise.type === 'strength' && parseFloat(exercise.actualWeight) > exercise.targetWeightValue) newStatus = 'beat-target';
         
-        const calories = await fetchCalorieEstimation(exercise);
+        const updatedFields = { status: 'completed', completedTimestamp: Date.now() };
+
+        if (exercise.type === 'strength') {
+            const numSets = parseInt(exercise.targetSets) || 0;
+            const newActualSets = [...(exercise.actualSets || [])];
+            
+            while (newActualSets.length < numSets) {
+                newActualSets.push({});
+            }
+            if (newActualSets.length > numSets) {
+                newActualSets.length = numSets;
+            }
+
+            for (let i = 0; i < numSets; i++) {
+                newActualSets[i] = {
+                    reps: newActualSets[i]?.reps || exercise.targetReps?.split('-')[0].trim() || '',
+                    weight: newActualSets[i]?.weight || exercise.targetWeightValue || '',
+                };
+            }
+            updatedFields.actualSets = newActualSets;
+
+            const lastSetWeight = newActualSets[newActualSets.length - 1]?.weight;
+            const actualWeight = parseFloat(lastSetWeight) || exercise.targetWeightValue;
+            if (actualWeight < exercise.targetWeightValue) {
+                updatedFields.status = 'completed-under';
+            }
+        }
         
-        updateExercise(id, { status: newStatus, calories, completedTimestamp: Date.now() });
+        const calories = await fetchCalorieEstimation({ ...exercise, ...updatedFields });
+        if (calories) {
+            updatedFields.calories = calories;
+        }
+        
+        updateExercise(id, updatedFields);
         showToast("Great Job!");
     };
     
     const skipExercise = (id, note) => { updateExercise(id, { status: 'skipped', note, completedTimestamp: Date.now() }); showToast("Exercise skipped"); };
-    const undoExercise = (id) => { const dateKey = toYYYYMMDD(currentDate); const exerciseToUndo = weeklyPlan[dateKey].find(ex => ex.id === id); if (!exerciseToUndo) return; updateExercise(id, { status: 'pending', completedTimestamp: null, actualReps: '', actualWeight: '', actualTime: '', actualDistance: '', note: exerciseToUndo.status === 'skipped' ? exerciseToUndo.note : '', calories: null }); showToast("Action undone"); };
-    const exercisesForDay = useMemo(() => { const dateKey = toYYYYMMDD(currentDate); const exercises = weeklyPlan[dateKey] || []; return [...exercises].sort((a, b) => { const aDone = a.status !== 'pending', bDone = b.status !== 'pending'; if (aDone !== bDone) return aDone - bDone; return (a.completedTimestamp || 0) - (b.completedTimestamp || 0); }); }, [currentDate, weeklyPlan]);
+    const undoExercise = (id) => { const dateKey = toYYYYMMDD(currentDate); const exerciseToUndo = weeklyPlan[dateKey].exercises.find(ex => ex.id === id); if (!exerciseToUndo) return; updateExercise(id, { status: 'pending', completedTimestamp: null, actualSets: [], actualTime: '', actualDistance: '', note: exerciseToUndo.status === 'skipped' ? exerciseToUndo.note : '', calories: null }); showToast("Action undone"); };
+    const exercisesForDay = useMemo(() => { const dayData = weeklyPlan[toYYYYMMDD(currentDate)]; if (!dayData || !dayData.exercises) return []; return [...dayData.exercises].sort((a, b) => { const aDone = a.status !== 'pending', bDone = b.status !== 'pending'; if (aDone !== bDone) return aDone - bDone; return (a.completedTimestamp || 0) - (b.completedTimestamp || 0); }); }, [currentDate, weeklyPlan]);
     const isWorkoutComplete = useMemo(() => { if (exercisesForDay.length === 0) return false; return exercisesForDay.every(ex => ex.status !== 'pending'); }, [exercisesForDay]);
     const handleDragStart = (e, item) => setDraggedItem(item);
     const handleDragOver = (e, item) => { e.preventDefault(); if (item.id !== draggedItem?.id) setDropTarget(item.id); };
-    const handleDrop = (e, dropItem) => { e.preventDefault(); if (!draggedItem || draggedItem.id === dropItem.id) return; const dateKey = toYYYYMMDD(currentDate); let currentItems = [...weeklyPlan[dateKey]]; const draggedIndex = currentItems.findIndex(item => item.id === draggedItem.id); const dropIndex = currentItems.findIndex(item => item.id === dropItem.id); const [reorderedItem] = currentItems.splice(draggedIndex, 1); currentItems.splice(dropIndex, 0, reorderedItem); const newWeeklyPlan = { ...weeklyPlan, [dateKey]: currentItems }; setWeeklyPlan(newWeeklyPlan); updateFirestore({ workouts: newWeeklyPlan }); setDraggedItem(null); setDropTarget(null); };
+    const handleDrop = (e, dropItem) => { e.preventDefault(); if (!draggedItem || draggedItem.id === dropItem.id) return; const dateKey = toYYYYMMDD(currentDate); const dayData = weeklyPlan[dateKey]; let currentItems = [...dayData.exercises]; const draggedIndex = currentItems.findIndex(item => item.id === draggedItem.id); const dropIndex = currentItems.findIndex(item => item.id === dropItem.id); const [reorderedItem] = currentItems.splice(draggedIndex, 1); currentItems.splice(dropIndex, 0, reorderedItem); updateDayData(dateKey, { ...dayData, exercises: currentItems }); setDraggedItem(null); setDropTarget(null); };
     const handleDragEnd = () => { setDraggedItem(null); setDropTarget(null); };
     const handleDescriptionFetched = (name, description) => {
         const newDescriptions = { ...exerciseDescriptions, [name]: description };
         setExerciseDescriptions(newDescriptions);
         updateFirestore({ descriptions: newDescriptions });
     };
+    const handleSaveSessionNotes = (notes) => {
+        const dateKey = toYYYYMMDD(currentDate);
+        const dayData = weeklyPlan[dateKey] || { exercises: [], sessionNotes: '' };
+        updateDayData(dateKey, { ...dayData, sessionNotes: notes });
+        showToast("Session notes saved!");
+    };
 
-    if (loading) return <div className="bg-gray-900 h-screen flex items-center justify-center text-white">Loading...</div>;
+    const workoutSummaryStats = useMemo(() => {
+        if (!exercisesForDay || exercisesForDay.length === 0) return null;
+
+        const completedExercises = exercisesForDay.filter(ex => ex.status !== 'pending' && ex.status !== 'skipped');
+
+        const totalCalories = completedExercises.reduce((sum, ex) => sum + (ex.calories || 0), 0);
+        
+        const totalVolume = completedExercises.reduce((volume, ex) => {
+            if (ex.type !== 'strength' || !ex.actualSets || ex.actualSets.length === 0) return volume;
+            const exerciseVolume = ex.actualSets.reduce((setVolume, set) => {
+                const reps = parseFloat(set.reps) || 0;
+                const weight = parseFloat(set.weight) || 0;
+                return setVolume + (reps * weight);
+            }, 0);
+            return volume + exerciseVolume;
+        }, 0);
+
+        return {
+            exerciseCount: completedExercises.length,
+            totalVolume: Math.round(totalVolume),
+            totalCalories: Math.round(totalCalories)
+        };
+    }, [exercisesForDay]);
+
+
+    if (loading) return <div className="bg-gray-900 h-screen flex items-center justify-center text-white"><Loader2 className="animate-spin mr-4" />Loading...</div>;
     if (!currentUser) return <LoginScreen onLogin={handleLogin} />;
+
+    const dayData = weeklyPlan[toYYYYMMDD(currentDate)];
+    const completionPercent = exercisesForDay.length > 0 ? (exercisesForDay.filter(e => e.status !== 'pending').length / exercisesForDay.length) * 100 : 0;
 
     return (
         <>
-            <style>{`.exercise-item { border-left: 6px solid transparent; } .status-completed { border-left-color: #22c55e; } .status-beat-target { border-left-color: #f97316; } .status-skipped { border-left-color: #ef4444; } .drop-indicator { border-top: 2px solid #22d3ee; }`}</style>
+            <style>{`.exercise-item { border-left: 6px solid transparent; } .status-completed { border-left-color: #22c55e; } .status-beat-target { border-left-color: #22c55e; } .status-completed-under { border-left-color: #f97316; } .status-skipped { border-left-color: #ef4444; } .drop-indicator { border-top: 2px solid #22d3ee; }`}</style>
             <div className="bg-gray-900 text-gray-100 min-h-screen font-sans">
-                <div className={`fixed top-0 left-0 h-full bg-gray-800 w-64 z-40 transform ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out`}><div className="p-4"><div className="flex items-center space-x-3 mb-6"><img src={userProfile.profilePic || `https://placehold.co/100x100/1f2937/7dd3fc?text=${(userProfile.name || ' ').charAt(0)}`} alt="Profile" className="w-12 h-12 rounded-full object-cover" /><div><p className="font-bold text-lg">{userProfile.name}</p><button onClick={() => { setActiveModal('profile'); setIsMenuOpen(false); }} className="text-xs text-cyan-400">Edit Profile</button></div></div><ul><li onClick={() => { setActiveModal('trends'); setIsMenuOpen(false); }} className="flex items-center space-x-3 p-2 rounded-md hover:bg-gray-700 cursor-pointer"><TrendingUp size={20} /><span>Trends</span></li><li onClick={() => { setActiveModal('import'); setIsMenuOpen(false); }} className="flex items-center space-x-3 p-2 rounded-md hover:bg-gray-700 cursor-pointer"><FileText size={20} /><span>Import from Text</span></li><li onClick={handleLogout} className="flex items-center space-x-3 p-2 rounded-md hover:bg-gray-700 cursor-pointer"><LogOut size={20} /><span>Logout</span></li></ul></div></div>
+                <div className={`fixed top-0 left-0 h-full bg-gray-800 w-64 z-40 transform ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out`}><div className="p-4"><div className="flex items-center space-x-3 mb-6"><img src={userProfile.profilePic || `https://placehold.co/100x100/1f2937/7dd3fc?text=${(userProfile.name || ' ').charAt(0)}`} alt="Profile" className="w-12 h-12 rounded-full object-cover" /><div><p className="font-bold text-lg">{userProfile.name}</p><button onClick={() => { setActiveModal('profile'); setIsMenuOpen(false); }} className="text-xs text-cyan-400">Edit Profile</button></div></div><ul><li onClick={() => { setActiveModal('trends'); setIsMenuOpen(false); }} className="flex items-center space-x-3 p-2 rounded-md hover:bg-gray-700 cursor-pointer"><TrendingUp size={20} /><span>Trends</span></li><li onClick={() => { setActiveModal('import'); setIsMenuOpen(false); }} className="flex items-center space-x-3 p-2 rounded-md hover:bg-gray-700 cursor-pointer"><FileText size={20} /><span>Import from CSV</span></li><li onClick={handleLogout} className="flex items-center space-x-3 p-2 rounded-md hover:bg-gray-700 cursor-pointer"><LogOut size={20} /><span>Logout</span></li></ul></div></div>
                 {isMenuOpen && <div onClick={() => setIsMenuOpen(false)} className="fixed inset-0 bg-black/50 z-30"></div>}
                 <div className="max-w-2xl mx-auto p-4 sm:p-6 lg:p-8 pb-32">
-                    <header className="flex items-center justify-between mb-6"><button onClick={() => setIsMenuOpen(true)} className="p-2 rounded-md hover:bg-gray-700"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg></button><h1 className="text-xl font-bold text-white tracking-tight">Workout Companion</h1><button onClick={() => setIsMenuOpen(true)} className="p-1 rounded-full hover:bg-gray-700"><img src={userProfile.profilePic || `https://placehold.co/100x100/1f2937/7dd3fc?text=${(userProfile.name || ' ').charAt(0)}`} alt="Profile" className="w-8 h-8 rounded-full object-cover" /></button></header>
-                    <div className="flex items-center justify-between bg-gray-800 p-2 rounded-lg mb-8"><button onClick={() => setCurrentDate(d => new Date(d.setDate(d.getDate() - 1)))} className="p-2 rounded-md hover:bg-gray-700"><ChevronLeft/></button><div className="text-center"><div className="text-lg font-bold text-white">{formatDate(currentDate)}</div>{toYYYYMMDD(new Date()) !== toYYYYMMDD(currentDate) && <button onClick={() => setCurrentDate(new Date())} className="text-xs text-cyan-400 hover:text-cyan-300">Go to Today</button>}</div><button onClick={() => setCurrentDate(d => new Date(d.setDate(d.getDate() + 1)))} className="p-2 rounded-md hover:bg-gray-700"><ChevronRight/></button></div>
-                    <div className="space-y-4">{isWorkoutComplete && (<div className="bg-green-800/50 border border-green-600 text-white p-4 rounded-lg text-center flex items-center justify-center space-x-3"><PartyPopper className="text-green-300" /><div><h3 className="font-bold text-lg">Workout Complete!</h3><p className="text-sm text-green-200">Great job finishing all your exercises for today.</p></div></div>)}{exercisesForDay.length > 0 ? exercisesForDay.map(ex => { let trendIndicator = null; if (ex.type === 'strength') { const prevWeight = findPreviousWeight(ex.name, currentDate); if (prevWeight !== null && ex.targetWeightValue > prevWeight) { const percentIncrease = ((ex.targetWeightValue - prevWeight) / prevWeight) * 100; trendIndicator = (<span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-900 text-green-300"><TrendingUp className="w-3 h-3 mr-1" />+{percentIncrease.toFixed(1)}%</span>); } } return (<div key={ex.id} className={dropTarget === ex.id ? 'drop-indicator' : ''}><ExerciseItem exercise={ex} onUpdate={(fields) => updateExercise(ex.id, fields)} onComplete={() => completeExercise(ex.id)} onSkip={(note) => skipExercise(ex.id, note)} onUndo={() => undoExercise(ex.id)} onEdit={() => handleEditExercise(ex)} onShowVisualAid={() => setActiveModal({type: 'visual', exercise: ex})} trend={trendIndicator} onDragStart={(e) => handleDragStart(e, ex)} onDragOver={(e) => handleDragOver(e, ex)} onDrop={(e) => handleDrop(e, ex)} onDragEnd={handleDragEnd} isDragging={draggedItem?.id === ex.id} /></div>)}) : (<div className="text-center py-16 bg-gray-800 rounded-lg flex flex-col items-center justify-center space-y-4"><ClipboardPlus size={48} className="text-gray-500" /><h3 className="text-xl font-semibold text-white">No Workout Planned</h3><p className="text-gray-400 mt-2 max-w-xs">It's a rest day! Or, you can add a new workout to get started.</p><button onClick={() => setActiveModal('add')} className="mt-4 flex items-center justify-center bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-4 rounded-lg"><Plus size={20} className="mr-2" />Add a Workout</button></div>)}</div>
+                    <header className="flex items-center justify-between mb-6"><button onClick={() => setIsMenuOpen(true)} className="p-2 rounded-md hover:bg-gray-700"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg></button><h1 className="text-xl font-bold text-white tracking-tight">Workout Companion</h1><button onClick={() => setActiveModal('profile')} className="p-1 rounded-full hover:bg-gray-700"><img src={userProfile.profilePic || `https://placehold.co/100x100/1f2937/7dd3fc?text=${(userProfile.name || ' ').charAt(0)}`} alt="Profile" className="w-8 h-8 rounded-full object-cover" /></button></header>
+                    <div className="flex items-center justify-between bg-gray-800 p-2 rounded-lg mb-4"><button onClick={() => setCurrentDate(d => { const newD = new Date(d); newD.setDate(d.getDate() - 1); return newD; })} className="p-2 rounded-md hover:bg-gray-700"><ChevronLeft/></button><div className="text-center"><div className="flex items-center justify-center"><div className="text-lg font-bold text-white">{formatDate(currentDate)}</div><button onClick={() => setActiveModal('sessionNotes')} className="ml-2 p-1 text-gray-400 hover:text-cyan-400"><BookOpen size={18} /></button></div>{toYYYYMMDD(new Date()) !== toYYYYMMDD(currentDate) && <button onClick={() => setCurrentDate(new Date())} className="text-xs text-cyan-400 hover:text-cyan-300">Go to Today</button>}</div><button onClick={() => setCurrentDate(d => { const newD = new Date(d); newD.setDate(d.getDate() + 1); return newD; })} className="p-2 rounded-md hover:bg-gray-700"><ChevronRight/></button></div>
+                    {dayData?.sessionNotes && <div className="bg-sky-900/50 border border-sky-700 text-sky-200 p-3 rounded-lg mb-4 text-sm"><p><span className="font-bold">Session Briefing:</span> {dayData.sessionNotes}</p></div>}
+                    
+                    {exercisesForDay.length > 0 && (<div className="mb-6"><div className="w-full bg-gray-700 rounded-full h-4 mb-1"><div className="bg-cyan-500 h-4 rounded-full" style={{ width: `${completionPercent}%` }}></div></div><p className="text-right text-xs text-gray-400">{Math.round(completionPercent)}% Complete</p></div>)}
+
+                    {workoutSummaryStats && <WorkoutSummaryStats stats={workoutSummaryStats} />}
+
+                    <div className="space-y-4">{isWorkoutComplete && (<div className="bg-green-800/50 border border-green-600 text-white p-4 rounded-lg text-center flex items-center justify-center space-x-3"><PartyPopper className="text-green-300" /><div><h3 className="font-bold text-lg">Workout Complete!</h3><p className="text-sm text-green-200">Great job finishing all your exercises for today.</p></div></div>)}{exercisesForDay.length > 0 ? exercisesForDay.map(ex => { let trendIndicator = null; if (ex.type === 'strength') { const prevWeight = findPreviousWeight(ex.name, currentDate); if (prevWeight !== null && ex.targetWeightValue > prevWeight) { const percentIncrease = ((ex.targetWeightValue - prevWeight) / prevWeight) * 100; trendIndicator = (<span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-900 text-green-300"><TrendingUp className="w-3 h-3 mr-1" />+{percentIncrease.toFixed(1)}%</span>); } } return (<div key={ex.id} className={dropTarget === ex.id ? 'drop-indicator' : ''}><ExerciseItem exercise={ex} onUpdate={(fields) => updateExercise(ex.id, fields)} onSetUpdate={(setIndex, field, value) => handleSetUpdate(ex.id, setIndex, field, value)} onComplete={() => completeExercise(ex.id)} onSkip={(note) => skipExercise(ex.id, note)} onUndo={() => undoExercise(ex.id)} onEdit={() => handleEditExercise(ex)} onShowVisualAid={() => setActiveModal({type: 'visual', exercise: ex})} trend={trendIndicator} onDragStart={(e) => handleDragStart(e, ex)} onDragOver={(e) => handleDragOver(e, ex)} onDrop={(e) => handleDrop(e, ex)} onDragEnd={handleDragEnd} isDragging={draggedItem?.id === ex.id} /></div>)}) : (<div className="text-center py-16 bg-gray-800 rounded-lg flex flex-col items-center justify-center space-y-4"><ClipboardPlus size={48} className="text-gray-500" /><h3 className="text-xl font-semibold text-white">No Workout Planned</h3><p className="text-gray-400 mt-2 max-w-xs">It's a rest day! Or, you can add a new workout to get started.</p><button onClick={() => setActiveModal('add')} className="mt-4 flex items-center justify-center bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-4 rounded-lg"><Plus size={20} className="mr-2" />Add a Workout</button></div>)}</div>
                 </div>
                  <div className="fixed bottom-0 left-0 right-0 bg-gray-900/80 backdrop-blur-sm border-t border-gray-700"><div className="max-w-2xl mx-auto p-4 flex gap-4"><button onClick={() => setActiveModal('add')} className="w-1/2 bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-4 rounded-lg text-base transition-all duration-200 flex items-center justify-center"><Plus size={20} className="mr-2" />Add Exercise</button><button onClick={() => setActiveModal('summary')} className="w-1/2 bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-3 px-4 rounded-lg text-base transition-all duration-200 flex items-center justify-center"><ClipboardList size={20} className="mr-2" />Review Summary</button></div></div>
                 {activeModal === 'profile' && <ProfileModal user={userProfile} onSave={handleSaveProfile} onClose={() => setActiveModal(null)} />}
                 {activeModal === 'trends' && <TrendsModal weeklyPlan={weeklyPlan} onClose={() => setActiveModal(null)} />}
-                {activeModal === 'import' && <ImportModal existingPlan={weeklyPlan} onImport={handleImportConfirm} onClose={() => setActiveModal(null)} />}
+                {activeModal === 'import' && <CSVImportModal onImport={handleImportConfirm} onClose={() => setActiveModal(null)} />}
                 {activeModal === 'edit' && <EditExerciseModal exercise={editingExercise} onSave={handleSaveEditedExercise} onDelete={handleDeleteExercise} onClose={() => setActiveModal(null)} />}
                 {activeModal === 'add' && <AddExerciseModal onAdd={handleAddExercise} onClose={() => setActiveModal(null)} />}
                 {activeModal === 'summary' && <SummaryModal summary={generateSummary()} onClose={() => setActiveModal(null)} onCopy={handleCopySummary} />}
+                {activeModal === 'sessionNotes' && <SessionNotesModal notes={dayData?.sessionNotes} onSave={handleSaveSessionNotes} onClose={() => setActiveModal(null)} />}
                 {activeModal?.type === 'visual' && <VisualAidModal exercise={activeModal.exercise} onClose={() => setActiveModal(null)} onDescriptionFetched={handleDescriptionFetched} cachedDescription={exerciseDescriptions[activeModal.exercise.name]} />}
                 {toast.show && <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-green-500 text-white py-2 px-5 rounded-full text-sm font-semibold shadow-lg transition-all duration-300 opacity-100 translate-y-0">{toast.message}</div>}
             </div>
