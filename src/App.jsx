@@ -33,6 +33,21 @@ const toYYYYMMDD = (date) => {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 const formatDate = (date) => date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+const parseExerciseString = (line) => {
+    const name = line.split(':')[0].trim();
+    const base = { id: Math.random(), name, type: 'strength', targetSets: 'N/A', targetReps: 'N/A', targetWeight: 'N/A', targetWeightValue: 0, actualSets: [], actualTime: '', actualDistance: '', note: '', status: 'pending', completedTimestamp: null, calories: null };
+    if (name.toLowerCase().includes('skipping') || name.toLowerCase().includes('treadmill') || name.toLowerCase().includes('basketball') || name.toLowerCase().includes('run')) base.type = 'cardio';
+    if (line.includes('stopped due to')) { base.note = 'Stopped due to' + line.split(' stopped due to')[1]; return base; }
+    const parts = line.split(':');
+    if (parts.length < 2) return base;
+    const details = parts[1].trim();
+    const atSplit = details.split('@');
+    if (atSplit.length > 1) { base.targetWeight = atSplit[1].trim(); base.targetWeightValue = parseFloat(base.targetWeight) || 0; }
+    const setsRepsPart = atSplit[0].trim();
+    const xSplit = setsRepsPart.split('x');
+    if (xSplit.length > 1) { base.targetSets = xSplit[0].trim(); base.targetReps = xSplit[1].trim(); }
+    return base;
+};
 
 // --- MODAL & UI COMPONENTS ---
 const LoginScreen = ({ onLogin }) => (
@@ -234,7 +249,7 @@ const ExerciseItem = ({ exercise, onUpdate, onSetUpdate, onComplete, onSkip, onU
     };
 
     const handleExpandClick = () => {
-        if (!isExpanded && exercise.type === 'strength' && exercise.actualSets.length === 0) {
+        if (!isExpanded && exercise.type === 'strength' && (!exercise.actualSets || exercise.actualSets.length === 0)) {
             const numSets = parseInt(exercise.targetSets) || 0;
             const reps = exercise.targetReps?.split('-')[0].trim() || '';
             const weight = exercise.targetWeightValue || '';
@@ -248,7 +263,7 @@ const ExerciseItem = ({ exercise, onUpdate, onSetUpdate, onComplete, onSkip, onU
 
     return (
         <div draggable={exercise.status === 'pending'} onDragStart={onDragStart} onDragOver={onDragOver} onDrop={onDrop} onDragEnd={onDragEnd} className={`bg-gray-800 rounded-lg shadow-md exercise-item transition-all duration-300 status-${exercise.status} ${isDragging ? 'opacity-50' : 'opacity-100'}`}>
-            <div className="p-4"><div className="flex items-start space-x-4"><input type="checkbox" checked={exercise.status !== 'pending'} onChange={onComplete} className="form-checkbox h-7 w-7 mt-1 bg-gray-700 border-gray-600 rounded text-cyan-500 focus:ring-cyan-500/50 cursor-pointer" disabled={exercise.status !== 'pending'} /><div className="flex-1 min-w-0"><div className="flex justify-between items-center"><div className="flex items-center flex-wrap"><h3 className="text-lg font-semibold text-white">{exercise.name}</h3>{trend}</div><div className="flex items-center space-x-1">{exercise.type === 'strength' && <button onClick={handleExpandClick} className="p-1 text-gray-500 hover:text-cyan-400"><ChevronsUpDown size={20} /></button>}<button onClick={onShowVisualAid} className="p-1 text-gray-500 hover:text-cyan-400"><Info size={20} /></button>{exercise.status === 'pending' && <button onClick={onEdit} className="p-1 text-gray-500 hover:text-cyan-400"><Pencil size={18} /></button>}{exercise.status === 'pending' && <button onClick={() => setIsSkipping(true)} className="p-1 text-gray-500 hover:text-red-400"><X size={20} /></button>}{exercise.status !== 'pending' && <button onClick={onUndo} className="p-1 text-gray-500 hover:text-cyan-400" title="Undo"><Undo2 size={20} /></button>}</div></div>
+            <div className="p-4"><div className="flex items-start space-x-4"><input type="checkbox" checked={exercise.status !== 'pending'} onChange={onComplete} className="form-checkbox h-7 w-7 mt-1 bg-gray-700 border-gray-600 rounded text-cyan-500 focus:ring-cyan-500/50 cursor-pointer" disabled={exercise.status !== 'pending'} /><div className="flex-1 min-w-0"><div className="flex justify-between items-center"><div className="flex items-center flex-wrap"><h3 className="text-lg font-semibold text-white">{exercise.name}</h3>{trend}</div><div className="flex items-center space-x-1">{(exercise.type === 'strength' || !exercise.type) && <button onClick={handleExpandClick} className="p-1 text-gray-500 hover:text-cyan-400"><ChevronsUpDown size={20} /></button>}<button onClick={onShowVisualAid} className="p-1 text-gray-500 hover:text-cyan-400"><Info size={20} /></button>{exercise.status === 'pending' && <button onClick={onEdit} className="p-1 text-gray-500 hover:text-cyan-400"><Pencil size={18} /></button>}{exercise.status === 'pending' && <button onClick={() => setIsSkipping(true)} className="p-1 text-gray-500 hover:text-red-400"><X size={20} /></button>}{exercise.status !== 'pending' && <button onClick={onUndo} className="p-1 text-gray-500 hover:text-cyan-400" title="Undo"><Undo2 size={20} /></button>}</div></div>
             
             <div className="mt-2 p-3 bg-gray-900/50 rounded-md">
                 <div className="grid grid-cols-3 gap-4 text-center">
@@ -257,13 +272,13 @@ const ExerciseItem = ({ exercise, onUpdate, onSetUpdate, onComplete, onSkip, onU
                     <div><div className="text-xs text-gray-400">Weight</div><div className="text-lg font-bold text-white">{exercise.targetWeight || 'Bodyweight'}</div></div>
                 </div>
 
-                {isExpanded && exercise.type === 'strength' && (
+                {isExpanded && (exercise.type === 'strength' || !exercise.type) && (
                     <div className="mt-4 pt-4 border-t border-gray-700 space-y-2">
                         {Array.from({ length: targetSetsCount }).map((_, setIndex) => (
                             <div key={setIndex} className="grid grid-cols-[auto,1fr,1fr] gap-x-3 items-center">
                                 <span className="text-sm font-medium text-gray-400">Set {setIndex + 1}</span>
-                                <input type="number" value={exercise.actualSets[setIndex]?.reps ?? ''} onChange={e => onSetUpdate(setIndex, 'reps', e.target.value)} placeholder="Reps" className="bg-gray-700 p-2 rounded w-full text-center" disabled={exercise.status !== 'pending'} />
-                                <input type="number" value={exercise.actualSets[setIndex]?.weight ?? ''} onChange={e => onSetUpdate(setIndex, 'weight', e.target.value)} placeholder="kg" className="bg-gray-700 p-2 rounded w-full text-center" disabled={exercise.status !== 'pending'} step="0.5" />
+                                <input type="number" value={exercise.actualSets[setIndex]?.reps ?? ''} onChange={e => onSetUpdate(setIndex, 'reps', e.target.value)} placeholder={exercise.targetReps?.split('-')[0].trim() || 'Reps'} className="bg-gray-700 p-2 rounded w-full text-center" disabled={exercise.status !== 'pending'} />
+                                <input type="number" value={exercise.actualSets[setIndex]?.weight ?? ''} onChange={e => onSetUpdate(setIndex, 'weight', e.target.value)} placeholder={String(exercise.targetWeightValue) || 'kg'} className="bg-gray-700 p-2 rounded w-full text-center" disabled={exercise.status !== 'pending'} step="0.5" />
                             </div>
                         ))}
                     </div>
