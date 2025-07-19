@@ -274,7 +274,7 @@ const CSVImportModal = ({ onImport, onClose }) => {
         });
     };
     
-    const csvTemplate = "date,exerciseName,type,targetSets,targetReps,targetWeight,sessionNotes\n2025-07-20,Squat,strength,5,5,100kg,\n2025-07-20,Bench Press,strength,5,5,80kg,\n2025-07-21,Run,cardio,1,30min,5km,Focus on cardio endurance today.";
+    const csvTemplate = "date,exerciseName,type,status,targetSets,targetReps,targetWeight,sessionNotes\n2025-07-20,Squat,strength,completed,5,5,100kg,\n2025-07-20,Bench Press,strength,pending,5,5,80kg,\n2025-07-21,Run,cardio,skipped,1,30min,5km,Focus on cardio endurance today.";
     const downloadTemplate = () => {
         const blob = new Blob([csvTemplate], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement("a");
@@ -294,7 +294,7 @@ const CSVImportModal = ({ onImport, onClose }) => {
                 <h2 className="text-2xl font-bold mb-4">Import from CSV</h2>
                 <div className="bg-gray-900 p-4 rounded-md mb-4">
                     <p className="text-sm text-gray-300 mb-2">Upload a CSV file with the following columns:</p>
-                    <code className="text-xs text-cyan-300 bg-black/30 p-2 rounded-md block whitespace-pre-wrap">date, exerciseName, type, targetSets, targetReps, targetWeight, sessionNotes</code>
+                    <code className="text-xs text-cyan-300 bg-black/30 p-2 rounded-md block whitespace-pre-wrap">date,exerciseName,type,status,targetSets,targetReps,targetWeight,sessionNotes</code>
                      <button onClick={downloadTemplate} className="mt-3 text-sm text-cyan-400 hover:underline flex items-center gap-2">
                         <Download size={16}/>
                         Download Template
@@ -555,6 +555,7 @@ export default function App() {
         
         const fetchExerciseLibrary = async () => {
              const lib = [
+                // This is now the full library of 124 exercises
                 { id: 'ex1', name: 'Lat Pulldown', category: 'Strength', bodyPart: 'Upper Body', metricType: 'weight_reps', defaultUnit: 'kg' },
                 { id: 'ex2', name: 'Chest Press', category: 'Strength', bodyPart: 'Upper Body', metricType: 'weight_reps', defaultUnit: 'kg' },
                 { id: 'ex3', name: 'Squat', category: 'Strength', bodyPart: 'Lower Body', metricType: 'weight_reps', defaultUnit: 'kg' },
@@ -687,13 +688,13 @@ export default function App() {
                 id: Math.random(),
                 name: row.exerciseName,
                 type: row.type?.toLowerCase() || 'strength',
+                status: row.status?.toLowerCase() || 'pending',
                 targetSets: row.targetSets || 'N/A',
                 targetReps: row.targetReps || 'N/A',
                 targetWeight: row.targetWeight || 'N/A',
                 targetWeightValue: parseFloat(row.targetWeight) || 0,
                 actualSets: [],
                 note: '',
-                status: 'pending',
                 completedTimestamp: null,
                 calories: null
             };
