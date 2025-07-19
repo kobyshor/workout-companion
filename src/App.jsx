@@ -25,7 +25,7 @@ let auth;
 let db;
 let provider;
 
-if (firebaseConfig && firebaseConfig.apiKey) {
+if (firebaseConfig && firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_NEW_REGENERATED_API_KEY_HERE") {
     try {
         app = initializeApp(firebaseConfig);
         auth = getAuth(app);
@@ -48,6 +48,16 @@ const toYYYYMMDD = (date) => {
 const formatDate = (date) => date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
 
 // --- MODAL & UI COMPONENTS ---
+const ConfigErrorScreen = () => (
+    <div className="flex flex-col items-center justify-center h-screen bg-red-900 text-white p-8">
+        <AlertTriangle size={48} className="text-yellow-300 mb-4" />
+        <h1 className="text-3xl font-bold mb-2">Configuration Error</h1>
+        <p className="text-center max-w-md">
+            Firebase configuration is missing or invalid. If you are running this locally, please ensure you have replaced the placeholder API key in <code>src/App.jsx</code> with your new, regenerated key.
+        </p>
+    </div>
+);
+
 const LoginScreen = ({ onLogin }) => (
     <div className="flex flex-col items-center justify-center h-screen bg-gray-900 text-white p-8" style={{background: 'radial-gradient(circle, rgba(31,41,55,1) 0%, rgba(17,24,39,1) 100%)'}}>
         <div className="text-center mb-12"><h1 className="text-5xl font-bold mb-3 tracking-tight">Workout Companion</h1><p className="text-lg text-gray-400">Track your progress. See the results.</p></div>
@@ -62,7 +72,7 @@ const ProfileModal = ({ user, onSave, onClose }) => {
     const handleSave = () => { onSave(profileData); onClose(); };
     const handlePicChange = (e) => { if (e.target.files && e.target.files[0]) setProfileData({...profileData, profilePic: URL.createObjectURL(e.target.files[0])}); };
     return (
-        <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50 p-4"><div className="bg-gray-800 text-white rounded-lg p-6 w-full max-w-md"><h2 className="text-2xl font-bold mb-4">Profile</h2><div className="flex items-center space-x-4 mb-6"><div className="relative"><img src={profileData.profilePic || `https://placehold.co/100x100/1f2937/7dd3fc?text=${(profileData.name || ' ').charAt(0)}`} alt="Profile" className="w-24 h-24 rounded-full object-cover" /><label htmlFor="profile-pic-upload" className="absolute bottom-0 right-0 bg-cyan-500 p-1.5 rounded-full cursor-pointer hover:bg-cyan-600"><Camera size={16} /></label><input id="profile-pic-upload" type="file" className="hidden" accept="image/*" onChange={handlePicChange} /></div><input type="text" value={profileData.name || ''} onChange={e => setProfileData({...profileData, name: e.target.value})} placeholder="Your Name" className="bg-gray-700 border-gray-600 rounded p-2 text-xl font-bold w-full" /></div><div className="grid grid-cols-3 gap-4 mb-6"><div><label className="text-xs text-gray-400">Height (cm)</label><input type="number" value={profileData.height || ''} onChange={e => setProfileData({...profileData, height: e.target.value})} placeholder="cm" className="bg-gray-700 border-gray-600 rounded p-2 w-full mt-1" /></div><div><label className="text-xs text-gray-400">Weight (kg)</label><input type="number" value={profileData.weight || ''} onChange={e => setProfileData({...profileData, weight: e.target.value})} placeholder="kg" className="bg-gray-700 border-gray-600 rounded p-2 w-full mt-1" /></div><div><label className="text-xs text-gray-400">Age</label><input type="number" value={profileData.age || ''} onChange={e => setProfileData({...profileData, age: e.target.value})} placeholder="Age" className="bg-gray-700 border-gray-600 rounded p-2 w-full mt-1" /></div></div><div className="flex justify-end space-x-2"><button onClick={onClose} className="bg-gray-600 px-4 py-2 rounded">Cancel</button><button onClick={handleSave} className="bg-cyan-600 px-4 py-2 rounded">Save</button></div></div></div>
+        <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50 p-4"><div className="bg-gray-800 text-white rounded-lg p-6 w-full max-w-md relative"><button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-white"><X size={24} /></button><h2 className="text-2xl font-bold mb-4">Profile</h2><div className="flex items-center space-x-4 mb-6"><div className="relative"><img src={profileData.profilePic || `https://placehold.co/100x100/1f2937/7dd3fc?text=${(profileData.name || ' ').charAt(0)}`} alt="Profile" className="w-24 h-24 rounded-full object-cover" /><label htmlFor="profile-pic-upload" className="absolute bottom-0 right-0 bg-cyan-500 p-1.5 rounded-full cursor-pointer hover:bg-cyan-600"><Camera size={16} /></label><input id="profile-pic-upload" type="file" className="hidden" accept="image/*" onChange={handlePicChange} /></div><input type="text" value={profileData.name || ''} onChange={e => setProfileData({...profileData, name: e.target.value})} placeholder="Your Name" className="bg-gray-700 border-gray-600 rounded p-2 text-xl font-bold w-full" /></div><div className="grid grid-cols-3 gap-4 mb-6"><div><label className="text-xs text-gray-400">Height (cm)</label><input type="number" value={profileData.height || ''} onChange={e => setProfileData({...profileData, height: e.target.value})} placeholder="cm" className="bg-gray-700 border-gray-600 rounded p-2 w-full mt-1" /></div><div><label className="text-xs text-gray-400">Weight (kg)</label><input type="number" value={profileData.weight || ''} onChange={e => setProfileData({...profileData, weight: e.target.value})} placeholder="kg" className="bg-gray-700 border-gray-600 rounded p-2 w-full mt-1" /></div><div><label className="text-xs text-gray-400">Age</label><input type="number" value={profileData.age || ''} onChange={e => setProfileData({...profileData, age: e.target.value})} placeholder="Age" className="bg-gray-700 border-gray-600 rounded p-2 w-full mt-1" /></div></div><div className="flex justify-end space-x-2"><button onClick={onClose} className="bg-gray-600 px-4 py-2 rounded">Cancel</button><button onClick={handleSave} className="bg-cyan-600 px-4 py-2 rounded">Save</button></div></div></div>
     );
 };
 const TrendsModal = ({ weeklyPlan, onClose }) => {
@@ -79,7 +89,7 @@ const TrendsModal = ({ weeklyPlan, onClose }) => {
         return Object.entries(exerciseHistory).filter(([, data]) => data.length > 1);
     }, [weeklyPlan]);
     return (
-        <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50 p-4"><div className="bg-gray-800 text-white rounded-lg p-6 w-full max-w-4xl h-[90vh] overflow-y-auto"><div className="flex justify-between items-center mb-4"><h2 className="text-2xl font-bold">Performance Trends</h2><button onClick={onClose} className="p-1 rounded-full hover:bg-gray-700"><X size={24} /></button></div><div className="grid grid-cols-1 lg:grid-cols-2 gap-6">{trendData.length > 0 ? trendData.map(([name, data]) => (<div key={name} className="bg-gray-900 p-4 rounded-lg"><h3 className="font-semibold mb-4 text-center">{name}</h3><ResponsiveContainer width="100%" height={250}><LineChart data={data} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}><CartesianGrid strokeDasharray="3 3" stroke="#4b5563" /><XAxis dataKey="date" stroke="#9ca3af" fontSize={12} /><YAxis stroke="#9ca3af" fontSize={12} domain={['dataMin - 5', 'dataMax + 5']} /><Tooltip contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #4b5563' }} /><Legend /><Line type="monotone" dataKey="weight" stroke="#22d3ee" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 8 }} /></LineChart></ResponsiveContainer></div>)) : <p className="col-span-full text-center text-gray-400">Not enough data to show trends. Complete more workouts!</p>}</div></div></div>
+        <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50 p-4"><div className="bg-gray-800 text-white rounded-lg p-6 w-full max-w-4xl h-[90vh] overflow-y-auto relative"><button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-white"><X size={24} /></button><div className="flex justify-between items-center mb-4"><h2 className="text-2xl font-bold">Performance Trends</h2></div><div className="grid grid-cols-1 lg:grid-cols-2 gap-6">{trendData.length > 0 ? trendData.map(([name, data]) => (<div key={name} className="bg-gray-900 p-4 rounded-lg"><h3 className="font-semibold mb-4 text-center">{name}</h3><ResponsiveContainer width="100%" height={250}><LineChart data={data} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}><CartesianGrid strokeDasharray="3 3" stroke="#4b5563" /><XAxis dataKey="date" stroke="#9ca3af" fontSize={12} /><YAxis stroke="#9ca3af" fontSize={12} domain={['dataMin - 5', 'dataMax + 5']} /><Tooltip contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #4b5563' }} /><Legend /><Line type="monotone" dataKey="weight" stroke="#22d3ee" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 8 }} /></LineChart></ResponsiveContainer></div>)) : <p className="col-span-full text-center text-gray-400">Not enough data to show trends. Complete more workouts!</p>}</div></div></div>
     );
 };
 const EditExerciseModal = ({ exercise, onSave, onDelete, onClose }) => {
@@ -99,16 +109,18 @@ const EditExerciseModal = ({ exercise, onSave, onDelete, onClose }) => {
             setConfirmDelete(true);
         }
     };
+    const exerciseType = editedExercise.type?.toLowerCase() || 'strength';
+
     return (
-        <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50 p-4"><div className="bg-gray-800 text-white rounded-lg p-6 w-full max-w-md"><h2 className="text-2xl font-bold mb-4">Edit Exercise</h2><div className="space-y-4"><div><label className="text-xs text-gray-400">Exercise Name</label><input type="text" value={editedExercise.name || ''} onChange={e => handleFieldChange('name', e.target.value)} className="bg-gray-700 p-2 rounded w-full mt-1" /></div>
-            {(editedExercise.type === 'strength' || !editedExercise.type) && (
+        <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50 p-4"><div className="bg-gray-800 text-white rounded-lg p-6 w-full max-w-md relative"><button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-white"><X size={24} /></button><h2 className="text-2xl font-bold mb-4">Edit Exercise</h2><div className="space-y-4"><div><label className="text-xs text-gray-400">Exercise Name</label><input type="text" value={editedExercise.name || ''} onChange={e => handleFieldChange('name', e.target.value)} className="bg-gray-700 p-2 rounded w-full mt-1" /></div>
+            {exerciseType === 'strength' && (
                 <>
                     <div><label className="text-xs text-gray-400">Target Sets</label><input type="text" value={editedExercise.targetSets || ''} onChange={e => handleFieldChange('targetSets', e.target.value)} className="bg-gray-700 p-2 rounded w-full mt-1" /></div>
                     <div><label className="text-xs text-gray-400">Target Reps</label><input type="text" value={editedExercise.targetReps || ''} onChange={e => handleFieldChange('targetReps', e.target.value)} className="bg-gray-700 p-2 rounded w-full mt-1" /></div>
                     <div><label className="text-xs text-gray-400">Target Weight (kg)</label><input type="text" value={editedExercise.targetWeight || ''} onChange={e => handleFieldChange('targetWeight', e.target.value)} className="bg-gray-700 p-2 rounded w-full mt-1" placeholder="e.g., 40kg" /></div>
                 </>
             )}
-            {editedExercise.type === 'cardio' && (
+            {exerciseType === 'cardio' && (
                  <>
                     <div><label className="text-xs text-gray-400">Target Time (min)</label><input type="number" value={editedExercise.targetTime} onChange={e => handleFieldChange('targetTime', e.target.value)} className="bg-gray-700 p-2 rounded w-full mt-1" /></div>
                     <div><label className="text-xs text-gray-400">Target Distance ({editedExercise.defaultUnit})</label><input type="number" value={editedExercise.targetDistance} onChange={e => handleFieldChange('targetDistance', e.target.value)} className="bg-gray-700 p-2 rounded w-full mt-1" step="0.1" /></div>
@@ -156,7 +168,8 @@ const AddExerciseModal = ({ onAdd, onClose, exerciseLibrary, findLastPerformance
 
     return (
         <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50 p-4">
-            <div className="bg-gray-800 text-white rounded-lg p-6 w-full max-w-md">
+            <div className="bg-gray-800 text-white rounded-lg p-6 w-full max-w-md relative">
+                <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-white"><X size={24} /></button>
                 {step === 1 && (
                     <>
                         <h2 className="text-2xl font-bold mb-4">Select Exercise</h2>
@@ -215,7 +228,7 @@ const AddExerciseModal = ({ onAdd, onClose, exerciseLibrary, findLastPerformance
     );
 };
 const SummaryModal = ({ summary, onClose, onCopy }) => (
-    <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50 p-4"><div className="bg-gray-800 text-white rounded-lg p-6 w-full max-w-lg"><h2 className="text-2xl font-bold mb-4">Workout Summary</h2><textarea readOnly value={summary} className="w-full h-64 bg-gray-900 text-gray-200 rounded-lg p-3 border border-gray-600"></textarea><div className="flex justify-end space-x-2 mt-4"><button onClick={onClose} className="bg-gray-600 px-4 py-2 rounded">Cancel</button><button onClick={onCopy} className="bg-green-600 px-4 py-2 rounded">Copy to Clipboard</button></div></div></div>
+    <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50 p-4"><div className="bg-gray-800 text-white rounded-lg p-6 w-full max-w-lg relative"><button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-white"><X size={24} /></button><h2 className="text-2xl font-bold mb-4">Workout Summary</h2><textarea readOnly value={summary} className="w-full h-64 bg-gray-900 text-gray-200 rounded-lg p-3 border border-gray-600"></textarea><div className="flex justify-end space-x-2 mt-4"><button onClick={onClose} className="bg-gray-600 px-4 py-2 rounded">Cancel</button><button onClick={onCopy} className="bg-green-600 px-4 py-2 rounded">Copy to Clipboard</button></div></div></div>
 );
 const CSVImportModal = ({ onImport, onClose }) => {
     const [file, setFile] = useState(null);
@@ -276,7 +289,8 @@ const CSVImportModal = ({ onImport, onClose }) => {
 
     return (
         <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50 p-4">
-            <div className="bg-gray-800 text-white rounded-lg p-6 w-full max-w-lg">
+            <div className="bg-gray-800 text-white rounded-lg p-6 w-full max-w-lg relative">
+                <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-white"><X size={24} /></button>
                 <h2 className="text-2xl font-bold mb-4">Import from CSV</h2>
                 <div className="bg-gray-900 p-4 rounded-md mb-4">
                     <p className="text-sm text-gray-300 mb-2">Upload a CSV file with the following columns:</p>
@@ -334,13 +348,13 @@ const VisualAidModal = ({ exercise, onClose, onDescriptionFetched, cachedDescrip
     }, [exercise.name, exercise.gifUrl, cachedDescription, onDescriptionFetched]);
 
     return (
-        <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50 p-4"><div className="bg-gray-800 rounded-xl shadow-2xl w-full max-w-md"><div className="p-6"><h2 className="text-2xl font-bold text-white mb-4 text-center">{exercise.name}</h2><div className="min-h-[10rem] bg-gray-900 rounded-lg p-4 text-gray-300 flex justify-center items-center">
+        <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50 p-4"><div className="bg-gray-800 rounded-xl shadow-2xl w-full max-w-md relative"><button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-white"><X size={24} /></button><div className="p-6"><h2 className="text-2xl font-bold text-white mb-4 text-center">{exercise.name}</h2><div className="min-h-[10rem] bg-gray-900 rounded-lg p-4 text-gray-300 flex justify-center items-center">
             {exercise.gifUrl ? (
                 <img src={exercise.gifUrl} alt={`${exercise.name} GIF`} className="max-w-full max-h-64 rounded-md" />
             ) : (
                 isLoading ? <Loader2 className="animate-spin" /> : error || description
             )}
-        </div><button onClick={onClose} className="mt-4 w-full bg-gray-600 hover:bg-gray-500 text-white font-bold py-3 px-4 rounded-lg">Close</button></div></div></div>
+        </div></div></div></div>
     );
 };
 const ExerciseItem = ({ exercise, onUpdate, onSetUpdate, onComplete, onSkip, onUndo, onEdit, onShowVisualAid, trend, onDragStart, onDragOver, onDrop, onDragEnd, isDragging }) => {
@@ -369,7 +383,7 @@ const ExerciseItem = ({ exercise, onUpdate, onSetUpdate, onComplete, onSkip, onU
     };
 
     const targetSetsCount = parseInt(exercise.targetSets) || 0;
-    const exerciseType = exercise.type || 'strength'; // Fallback for old data
+    const exerciseType = exercise.type?.toLowerCase() || 'strength'; // Fallback for old data
 
     return (
         <div draggable={exercise.status === 'pending'} onDragStart={onDragStart} onDragOver={onDragOver} onDrop={onDrop} onDragEnd={onDragEnd} className={`bg-gray-800 rounded-lg shadow-md exercise-item transition-all duration-300 status-${exercise.status} ${isDragging ? 'opacity-50' : 'opacity-100'}`}>
@@ -420,18 +434,28 @@ const ExerciseItem = ({ exercise, onUpdate, onSetUpdate, onComplete, onSkip, onU
     );
 };
 
-const SessionNotesModal = ({ notes, onSave, onClose }) => {
+const SessionNotesModal = ({ notes, onSave, onClear, onClose }) => {
     const [sessionNotes, setSessionNotes] = useState(notes || '');
     const handleSave = () => { onSave(sessionNotes); onClose(); };
+    const handleClear = () => {
+        setSessionNotes('');
+        onClear();
+        onClose();
+    };
+
     return (
         <div className="fixed inset-0 bg-black/70 flex justify-center items-center z-50 p-4">
-            <div className="bg-gray-800 text-white rounded-lg p-6 w-full max-w-md">
+            <div className="bg-gray-800 text-white rounded-lg p-6 w-full max-w-md relative">
+                <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-white"><X size={24} /></button>
                 <h2 className="text-2xl font-bold mb-4">Session Briefing</h2>
                 <p className="text-sm text-gray-400 mb-4">Add notes for the entire workout session. Perfect for coach instructions or personal reminders.</p>
                 <textarea value={sessionNotes} onChange={(e) => setSessionNotes(e.target.value)} placeholder="e.g., Focus on form, don't go too heavy today." className="w-full h-40 bg-gray-900 text-gray-200 rounded-lg p-3 border border-gray-600 focus:border-cyan-500" />
-                <div className="flex justify-end space-x-2 mt-6">
-                    <button onClick={onClose} className="bg-gray-600 px-4 py-2 rounded">Cancel</button>
-                    <button onClick={handleSave} className="bg-cyan-600 px-4 py-2 rounded">Save Notes</button>
+                <div className="flex justify-between items-center mt-6">
+                    <button onClick={handleClear} className="bg-red-900/50 hover:bg-red-900 px-4 py-2 rounded">Clear</button>
+                    <div className="space-x-2">
+                        <button onClick={onClose} className="bg-gray-600 px-4 py-2 rounded">Cancel</button>
+                        <button onClick={handleSave} className="bg-cyan-600 px-4 py-2 rounded">Save Notes</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -662,7 +686,7 @@ export default function App() {
             const newExercise = {
                 id: Math.random(),
                 name: row.exerciseName,
-                type: row.type || 'strength',
+                type: row.type?.toLowerCase() || 'strength',
                 targetSets: row.targetSets || 'N/A',
                 targetReps: row.targetReps || 'N/A',
                 targetWeight: row.targetWeight || 'N/A',
@@ -786,6 +810,15 @@ export default function App() {
         showToast("Session notes saved!");
     };
 
+    const handleClearSessionNotes = () => {
+        const dateKey = toYYYYMMDD(currentDate);
+        const dayData = weeklyPlan[dateKey];
+        if (dayData) {
+            updateDayData(dateKey, { ...dayData, sessionNotes: '' });
+            showToast("Session notes cleared!");
+        }
+    };
+
     const workoutSummaryStats = useMemo(() => {
         if (!exercisesForDay || exercisesForDay.length === 0) return null;
 
@@ -811,6 +844,9 @@ export default function App() {
     }, [exercisesForDay]);
 
 
+    if (!firebaseConfig || !firebaseConfig.apiKey || firebaseConfig.apiKey === "YOUR_NEW_REGENERATED_API_KEY_HERE") {
+        return <ConfigErrorScreen />;
+    }
     if (loading) return <div className="bg-gray-900 h-screen flex items-center justify-center text-white"><Loader2 className="animate-spin mr-4" />Loading...</div>;
     if (!currentUser) return <LoginScreen onLogin={handleLogin} />;
 
@@ -841,7 +877,7 @@ export default function App() {
                 {activeModal === 'edit' && <EditExerciseModal exercise={editingExercise} onSave={handleSaveEditedExercise} onDelete={handleDeleteExercise} onClose={() => setActiveModal(null)} />}
                 {activeModal === 'add' && <AddExerciseModal onAdd={handleAddExercise} exerciseLibrary={exerciseLibrary} findLastPerformance={findLastPerformance} onClose={() => setActiveModal(null)} />}
                 {activeModal === 'summary' && <SummaryModal summary={generateSummary()} onClose={() => setActiveModal(null)} onCopy={handleCopySummary} />}
-                {activeModal === 'sessionNotes' && <SessionNotesModal notes={dayData?.sessionNotes} onSave={handleSaveSessionNotes} onClose={() => setActiveModal(null)} />}
+                {activeModal === 'sessionNotes' && <SessionNotesModal notes={dayData?.sessionNotes} onSave={handleSaveSessionNotes} onClear={handleClearSessionNotes} onClose={() => setActiveModal(null)} />}
                 {activeModal?.type === 'visual' && <VisualAidModal exercise={activeModal.exercise} onClose={() => setActiveModal(null)} onDescriptionFetched={handleDescriptionFetched} cachedDescription={exerciseDescriptions[activeModal.exercise.name]} />}
                 {toast.show && <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-green-500 text-white py-2 px-5 rounded-full text-sm font-semibold shadow-lg transition-all duration-300 opacity-100 translate-y-0">{toast.message}</div>}
             </div>
