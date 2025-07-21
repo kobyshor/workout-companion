@@ -1,6 +1,7 @@
+// src/components/CSVImportModal.jsx
 import React, { useState } from 'react';
 import { X, UploadCloud, Download } from 'lucide-react';
-// Make sure you have installed papaparse: npm install papaparse
+// FIX: Import papaparse as a module
 import Papa from 'papaparse';
 
 const CSVImportModal = ({ onImport, onClose }) => {
@@ -33,7 +34,6 @@ const CSVImportModal = ({ onImport, onClose }) => {
                     console.error("CSV Parsing Errors:", results.errors);
                     return;
                 }
-                // Pass the parsed data to the parent component's handler
                 onImport(results.data);
                 onClose();
             },
@@ -44,7 +44,6 @@ const CSVImportModal = ({ onImport, onClose }) => {
         });
     };
     
-    // The template string for coaches/users to download
     const csvTemplate = "date,exerciseName,type,status,targetSets,targetReps,targetWeight,targetTime,targetDistance,sessionNotes\n2025-07-20,Squat,strength,completed,5,5,100,,,\n2025-07-20,Bench Press,strength,pending,5,5,80,,,\n2025-07-21,Run,cardio,skipped,,,,30,5,Focus on cardio endurance today.";
     
     const downloadTemplate = () => {
