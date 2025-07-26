@@ -36,6 +36,8 @@ const MainLayout = () => {
     const [visualAidExercise, setVisualAidExercise] = useState(null);
     const [restTimerId, setRestTimerId] = useState(0);
     const [restDuration, setRestDuration] = useState(0);
+    const [toast, setToast] = useState({ show: false, message: '' });
+
 
     const dateKey = toYYYYMMDD(currentDate);
     const dayData = weeklyPlan[dateKey] || { exercises: [], sessionNotes: '' };
@@ -65,7 +67,7 @@ const MainLayout = () => {
         const completedExercises = exercisesForDay.filter(ex => ex.status !== 'pending' && ex.status !== 'skipped');
         const totalCalories = completedExercises.reduce((sum, ex) => sum + (ex.calories || 0), 0);
         const totalVolume = completedExercises.reduce((volume, ex) => {
-            if (ex.type !== 'strength' || !ex.actualSets || ex.actualSets.length === 0) return volume;
+            if (ex.metricType !== 'weight_reps' || !ex.actualSets || ex.actualSets.length === 0) return volume;
             const exerciseVolume = ex.actualSets.reduce((setVolume, set) => {
                 const reps = parseFloat(set.reps) || 0;
                 const weight = parseFloat(set.weight) || 0;
@@ -81,6 +83,11 @@ const MainLayout = () => {
     }, [exercisesForDay]);
 
     const isWorkoutComplete = useMemo(() => completionPercent === 100, [completionPercent]);
+    
+    const showToast = (message) => {
+        setToast({ show: true, message });
+        setTimeout(() => setToast({ show: false, message: '' }), 2000);
+    };
 
     const findLastPerformance = (exerciseName) => {
         let lastPerf = null;
@@ -103,9 +110,21 @@ const MainLayout = () => {
         updateDayData(dateKey, { ...dayData, exercises: newExercises });
     };
 
+    // --- UPDATED: Smarter calorie estimation ---
     const fetchCalorieEstimation = async (exercise) => {
-        const userWeight = userProfile?.weight || 75;
-        const prompt = `Estimate calories burned for a ${userWeight}kg person performing this exercise. Provide only the number. Exercise: ${exercise.name}, Sets: ${exercise.actualSets?.length || exercise.targetSets}, Reps: ${exercise.actualSets?.[0]?.reps || exercise.targetReps}, Weight: ${exercise.actualSets?.[0]?.weight || exercise.targetWeightValue}kg`;
+        const userWeight = userProfile?.weight || 100; // Use your weight from profile
+        let prompt;
+
+        if (exercise.metricType === 'time' || exercise.metricType === 'time_distance') {
+            const duration = exercise.actualTime || exercise.targetTime || 30;
+            prompt = `Estimate calories burned for a ${userWeight}kg person performing ${exercise.name} for ${duration} minutes. Provide only the number.`;
+        } else {
+            const sets = exercise.actualSets?.length || exercise.targetSets;
+            const reps = exercise.actualSets?.[0]?.reps || exercise.targetReps;
+            const weight = exercise.actualSets?.[0]?.weight || exercise.targetWeightValue;
+            prompt = `Estimate calories burned for a ${userWeight}kg person performing this exercise. Provide only the number. Exercise: ${exercise.name}, Sets: ${sets}, Reps: ${reps}, Weight: ${weight}kg`;
+        }
+        
         const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }] };
         const apiKey = firebaseConfig.apiKey;
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
@@ -177,6 +196,12 @@ const MainLayout = () => {
     const handleSaveEditedExercise = (editedData) => {
         updateExercise(editedData.id, editedData);
     };
+    
+    const handleDeleteExercise = (exerciseId) => {
+        const newExercises = dayData.exercises.filter(ex => ex.id !== exerciseId);
+        updateDayData(dateKey, { ...dayData, exercises: newExercises });
+        showToast("Exercise removed");
+    };
 
     const handleDescriptionFetched = (name, description) => {
         const newDescriptions = { ...exerciseDescriptions, [name]: description };
@@ -186,6 +211,36 @@ const MainLayout = () => {
     const handleStartRest = (duration) => {
         setRestDuration(duration);
         setRestTimerId(prevId => prevId + 1);
+    };
+
+    const generateSummary = () => {
+        if (!dayData) return "No workout for today.";
+        let summary = `Workout Summary for ${formatDate(currentDate)}:\n`;
+        if (dayData.sessionNotes) summary += `\nNotes: ${dayData.sessionNotes}\n`;
+        summary += "\n";
+        
+        exercisesForDay.forEach(ex => {
+            if (ex.status === 'pending' || ex.status === 'skipped') return;
+            
+            summary += `• ${ex.name}: `;
+            if (ex.metricType === 'weight_reps' && ex.actualSets && ex.actualSets.length > 0) {
+                const setsSummary = ex.actualSets.map(s => `${s.reps || '_'}x${s.weight || '_'}kg`).join(', ');
+                summary += ` ${setsSummary}.`;
+            } else if (ex.metricType === 'time_distance' || ex.metricType === 'time') {
+                if (ex.actualTime) summary += ` Time: ${ex.actualTime} min.`;
+                if (ex.actualDistance) summary += ` Distance: ${ex.actualDistance} ${ex.defaultUnit}.`;
+            }
+            if (ex.calories) summary += ` (~${ex.calories} kcal)`;
+            summary += '\n';
+        });
+        return summary;
+    };
+
+    const handleCopySummary = () => {
+        const summaryText = generateSummary();
+        navigator.clipboard.writeText(summaryText);
+        showToast("Summary copied to clipboard!");
+        setActiveModal(null);
     };
 
     const renderActiveModal = () => {
@@ -199,7 +254,7 @@ const MainLayout = () => {
             case 'add':
                 return <AddExerciseModal onAdd={handleAddExercise} findLastPerformance={findLastPerformance} onClose={() => setActiveModal(null)} />;
             case 'summary':
-                return <SummaryModal summary="Summary placeholder" onCopy={() => console.log('Copying...')} onClose={() => setActiveModal(null)} />;
+                return <SummaryModal summary={generateSummary()} onCopy={handleCopySummary} onClose={() => setActiveModal(null)} />;
             case 'manageLibrary':
                 return <LibraryManager onClose={() => setActiveModal(null)} />;
             case 'visual':
@@ -241,7 +296,6 @@ const MainLayout = () => {
                 </header>
 
                 <div className="flex items-center justify-between bg-gray-800 p-2 rounded-lg mb-4">
-                    {/* --- UPDATED: Date navigation logic --- */}
                     <button onClick={() => setCurrentDate(d => { const newDate = new Date(d); newDate.setDate(d.getDate() - 1); return newDate; })} className="p-2 rounded-md hover:bg-gray-700"><ChevronLeft/></button>
                     <div className="text-center">
                         <div className="text-lg font-bold text-white">{formatDate(currentDate)}</div>
@@ -276,7 +330,7 @@ const MainLayout = () => {
                     )}
                     {exercisesForDay.length > 0 ? exercisesForDay.map(ex => {
                         let trendIndicator = null;
-                        if (ex.type === 'strength') {
+                        if (ex.metricType === 'weight_reps') {
                             const prevWeight = findLastPerformance(ex.name)?.targetWeightValue;
                             if (prevWeight && ex.targetWeightValue > prevWeight) {
                                 const percentIncrease = ((ex.targetWeightValue - prevWeight) / prevWeight) * 100;
@@ -293,6 +347,7 @@ const MainLayout = () => {
                                 onUndo={handleUndoExercise}
                                 onAddSet={handleAddSet}
                                 onDeleteSet={handleDeleteSet}
+                                onDeleteExercise={handleDeleteExercise}
                                 onStartRest={handleStartRest}
                                 onShowVisualAid={(exercise) => {
                                     setVisualAidExercise(exercise);
@@ -328,6 +383,7 @@ const MainLayout = () => {
             
             <RestTimer timerId={restTimerId} duration={restDuration} />
             {renderActiveModal()}
+            {toast.show && <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-green-500 text-white py-2 px-5 rounded-full text-sm font-semibold shadow-lg">{toast.message}</div>}
         </div>
     );
 };

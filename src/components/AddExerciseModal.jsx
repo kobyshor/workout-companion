@@ -23,9 +23,9 @@ const AddExerciseModal = ({ onAdd, findLastPerformance, onClose }) => {
             name: exercise.name,
             type: exercise.category?.toLowerCase() || 'strength',
             metricType: exercise.metricType,
-            defaultUnit: exercise.defaultUnit,
+            defaultUnit: exercise.defaultUnit || '', 
             targetSets: lastPerformance?.targetSets || '3',
-            targetReps: lastPerformance?.targetReps || '12', // --- UPDATED: Default is now '12' ---
+            targetReps: lastPerformance?.targetReps || '12',
             targetWeight: lastPerformance?.targetWeight || '10',
             targetTime: lastPerformance?.targetTime || '30',
             targetDistance: lastPerformance?.targetDistance || '5'
@@ -73,11 +73,14 @@ const AddExerciseModal = ({ onAdd, findLastPerformance, onClose }) => {
                     <>
                         <h2 className="text-2xl font-bold mb-4">{selectedExercise.name}</h2>
                         <div className="space-y-4">
-                            {selectedExercise.metricType === 'weight_reps' && (
+                            {/* --- UPDATED: Conditional rendering for all exercise types --- */}
+                            {(selectedExercise.metricType === 'weight_reps' || selectedExercise.metricType === 'bodyweight') && (
                                 <>
                                     <div><label className="text-xs text-gray-400">Target Sets</label><input type="text" value={newExerciseDetails.targetSets} onChange={e => handleDetailChange('targetSets', e.target.value)} className="bg-gray-700 p-2 rounded w-full mt-1" /></div>
                                     <div><label className="text-xs text-gray-400">Target Reps</label><input type="text" value={newExerciseDetails.targetReps} onChange={e => handleDetailChange('targetReps', e.target.value)} className="bg-gray-700 p-2 rounded w-full mt-1" /></div>
-                                    <div><label className="text-xs text-gray-400">Target Weight (kg)</label><input type="number" value={newExerciseDetails.targetWeight} onChange={e => handleDetailChange('targetWeight', e.target.value)} className="bg-gray-700 p-2 rounded w-full mt-1" step="0.5" /></div>
+                                    {selectedExercise.metricType === 'weight_reps' && (
+                                        <div><label className="text-xs text-gray-400">Target Weight (kg)</label><input type="number" value={newExerciseDetails.targetWeight} onChange={e => handleDetailChange('targetWeight', e.target.value)} className="bg-gray-700 p-2 rounded w-full mt-1" step="0.5" /></div>
+                                    )}
                                 </>
                             )}
                              {selectedExercise.metricType === 'time_distance' && (
@@ -86,10 +89,9 @@ const AddExerciseModal = ({ onAdd, findLastPerformance, onClose }) => {
                                     <div><label className="text-xs text-gray-400">Target Distance ({selectedExercise.defaultUnit})</label><input type="number" value={newExerciseDetails.targetDistance} onChange={e => handleDetailChange('targetDistance', e.target.value)} className="bg-gray-700 p-2 rounded w-full mt-1" step="0.1" /></div>
                                 </>
                             )}
-                            {selectedExercise.metricType === 'bodyweight' && (
+                             {selectedExercise.metricType === 'time' && (
                                  <>
-                                    <div><label className="text-xs text-gray-400">Target Sets</label><input type="text" value={newExerciseDetails.targetSets} onChange={e => handleDetailChange('targetSets', e.target.value)} className="bg-gray-700 p-2 rounded w-full mt-1" /></div>
-                                    <div><label className="text-xs text-gray-400">Target Reps</label><input type="text" value={newExerciseDetails.targetReps} onChange={e => handleDetailChange('targetReps', e.target.value)} className="bg-gray-700 p-2 rounded w-full mt-1" /></div>
+                                    <div><label className="text-xs text-gray-400">Target Time ({selectedExercise.defaultUnit})</label><input type="number" value={newExerciseDetails.targetTime} onChange={e => handleDetailChange('targetTime', e.target.value)} className="bg-gray-700 p-2 rounded w-full mt-1" /></div>
                                 </>
                             )}
                         </div>

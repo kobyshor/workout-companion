@@ -1,6 +1,6 @@
 // src/contexts/AuthContext.jsx
 import React, { useState, useEffect, createContext, useContext } from 'react';
-import { onAuthStateChanged, signInWithPopup, signOut, signInAnonymously } from 'firebase/auth';
+import { onAuthStateChanged, signInWithPopup, signOut } from 'firebase/auth';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { auth, db, provider } from '../services/firebase.js';
 
@@ -13,7 +13,6 @@ export const useAuth = () => {
 const createDefaultWorkoutPlan = () => {
     const plan = {};
     const today = new Date();
-    
     const getNextDayOfWeek = (dayOfWeek) => {
         const resultDate = new Date(today.getTime());
         resultDate.setDate(today.getDate() + (dayOfWeek + 7 - today.getDay()) % 7);
@@ -22,12 +21,9 @@ const createDefaultWorkoutPlan = () => {
         }
         return resultDate.toISOString().split('T')[0];
     };
-
     const monday = getNextDayOfWeek(1);
     const wednesday = getNextDayOfWeek(3);
     const friday = getNextDayOfWeek(5);
-
-    // --- UPDATED: Each exercise now gets a unique ID ---
     plan[monday] = {
         sessionNotes: "Welcome! This is your first workout. Focus on good form.",
         exercises: [
@@ -52,7 +48,6 @@ const createDefaultWorkoutPlan = () => {
             { id: crypto.randomUUID(), name: 'Plank', type: 'time', targetTime: '60', defaultUnit: 'seconds', status: 'pending' },
         ]
     };
-
     return plan;
 };
 
@@ -63,7 +58,7 @@ export const AuthProvider = ({ children }) => {
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, async (user) => {
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
             if (user) {
                 const userDocRef = doc(db, 'artifacts', appId, 'users', user.uid);
                 
@@ -91,34 +86,27 @@ export const AuthProvider = ({ children }) => {
             }
         });
 
-        const performInitialSignIn = async () => {
-            if (!auth.currentUser) {
-                try {
-                    await signInAnonymously(auth);
-                } catch (error) {
-                    console.error("Initial anonymous sign-in failed:", error);
-                    setLoading(false);
-                }
-            }
-        };
-
-        performInitialSignIn();
-
         return () => unsubscribe();
     }, [appId]);
 
     const handleLogin = async () => {
-        setLoading(true);
         try {
             await signInWithPopup(auth, provider);
         } catch (e) {
             console.error("Google Sign-In failed:", e);
-            setLoading(false);
         }
     };
 
+    // --- UPDATED: More robust logout function ---
     const handleLogout = async () => {
-        await signOut(auth);
+        try {
+            await signOut(auth);
+            // Explicitly clear state to force UI update immediately
+            setCurrentUser(null);
+            setUserProfile(null);
+        } catch (error) {
+            console.error("Logout failed:", error);
+        }
     };
 
     const updateProfile = async (newProfile) => {

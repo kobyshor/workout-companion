@@ -15,7 +15,7 @@ const bodyPartColors = {
     'Flexibility': 'bg-orange-500',
 };
 
-const ExerciseItem = ({ exercise, onUpdate, onSetUpdate, onComplete, onUndo, onEdit, onStartRest, onAddSet, onDeleteSet, onShowVisualAid }) => {
+const ExerciseItem = ({ exercise, onUpdate, onSetUpdate, onComplete, onUndo, onEdit, onStartRest, onAddSet, onDeleteSet, onShowVisualAid, onDeleteExercise }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const [selectedRest, setSelectedRest] = useState(60);
     const [imageError, setImageError] = useState(false);
@@ -25,7 +25,7 @@ const ExerciseItem = ({ exercise, onUpdate, onSetUpdate, onComplete, onUndo, onE
     }, [exercise.actualSets]);
 
     const handleExpandClick = () => {
-        if (!isExpanded && exercise.type === 'strength' && (!exercise.actualSets || exercise.actualSets.length === 0)) {
+        if (!isExpanded && (exercise.metricType === 'weight_reps' || exercise.metricType === 'bodyweight') && (!exercise.actualSets || exercise.actualSets.length === 0)) {
             const numSets = parseInt(exercise.targetSets) || 0;
             const reps = exercise.targetReps?.split('-')[0].trim() || '12';
             const weight = exercise.targetWeightValue || '';
@@ -45,8 +45,6 @@ const ExerciseItem = ({ exercise, onUpdate, onSetUpdate, onComplete, onUndo, onE
             }
         }
     };
-
-    const exerciseType = exercise.type?.toLowerCase() || 'strength';
     
     const statusClass = {
         'completed-over': 'border-l-green-500',
@@ -85,31 +83,33 @@ const ExerciseItem = ({ exercise, onUpdate, onSetUpdate, onComplete, onUndo, onE
                                     )}
                                 </button>
                                 {exercise.status === 'pending' && <button onClick={() => onEdit(exercise)} className="p-1 text-gray-500 hover:text-cyan-400"><Pencil size={18} /></button>}
+                                {exercise.status === 'pending' && <button onClick={() => onDeleteExercise(exercise.id)} className="p-1 text-red-500 hover:text-red-400"><Trash2 size={18} /></button>}
                                 {exercise.status !== 'pending' && <button onClick={() => onUndo(exercise.id)} className="p-1 text-gray-500 hover:text-cyan-400" title="Undo"><Undo2 size={20} /></button>}
-                                <button onClick={handleExpandClick} className="p-1 text-gray-500 hover:text-cyan-400"><ChevronsUpDown size={20} /></button>
+                                {(exercise.metricType === 'weight_reps' || exercise.metricType === 'bodyweight') && <button onClick={handleExpandClick} className="p-1 text-gray-500 hover:text-cyan-400"><ChevronsUpDown size={20} /></button>}
                             </div>
                         </div>
                         
                         <div className="mt-2 p-3 bg-gray-900/50 rounded-md">
-                             <div className="grid grid-cols-3 gap-4 text-center">
-                                <div>
-                                    {/* --- UPDATED: "Target" label added --- */}
-                                    <div className="text-xs text-gray-400">Target Sets</div>
-                                    <div className="text-lg font-bold text-white">
-                                        {completedSetsCount} / {exercise.targetSets}
+                             {(exercise.metricType === 'weight_reps' || exercise.metricType === 'bodyweight') ? (
+                                <div className="grid grid-cols-3 gap-4 text-center">
+                                    <div>
+                                        <div className="text-xs text-gray-400">Target Sets</div>
+                                        <div className="text-lg font-bold text-white">
+                                            {completedSetsCount} / {exercise.targetSets}
+                                        </div>
                                     </div>
+                                    <div><div className="text-xs text-gray-400">Target Reps</div><div className="text-lg font-bold text-white">{exercise.targetReps}</div></div>
+                                    {exercise.metricType === 'weight_reps' && <div><div className="text-xs text-gray-400">Target Weight</div><div className="text-lg font-bold text-white">{exercise.targetWeight} kg</div></div>}
+                                    {exercise.metricType === 'bodyweight' && <div><div className="text-xs text-gray-400">Target Weight</div><div className="text-lg font-bold text-white">Bodyweight</div></div>}
                                 </div>
-                                <div>
-                                    <div className="text-xs text-gray-400">Target Reps</div>
-                                    <div className="text-lg font-bold text-white">{exercise.targetReps}</div>
+                             ) : (
+                                <div className="grid grid-cols-2 gap-4 text-center">
+                                    <div><div className="text-xs text-gray-400">Target Time</div><div className="text-lg font-bold text-white">{exercise.targetTime} min</div></div>
+                                    {exercise.metricType === 'time_distance' && <div><div className="text-xs text-gray-400">Target Distance</div><div className="text-lg font-bold text-white">{exercise.targetDistance} {exercise.defaultUnit}</div></div>}
                                 </div>
-                                <div>
-                                    <div className="text-xs text-gray-400">Target Weight</div>
-                                    <div className="text-lg font-bold text-white">{exercise.targetWeight || 'Bodyweight'}</div>
-                                </div>
-                            </div>
+                             )}
 
-                            {isExpanded && exerciseType === 'strength' && (
+                            {isExpanded && (exercise.metricType === 'weight_reps' || exercise.metricType === 'bodyweight') && (
                                 <div className="mt-4 pt-4 border-t border-gray-700 space-y-2">
                                     <div className="flex items-center justify-end gap-2 mb-2">
                                         <span className="text-xs text-gray-400">Rest:</span>
@@ -124,7 +124,7 @@ const ExerciseItem = ({ exercise, onUpdate, onSetUpdate, onComplete, onUndo, onE
                                         <div key={setIndex} className="grid grid-cols-[auto,1fr,1fr,auto,auto] gap-x-3 items-center">
                                             <span className="text-sm font-medium text-gray-400">Set {setIndex + 1}</span>
                                             <input type="number" value={exercise.actualSets?.[setIndex]?.reps ?? ''} onChange={e => onSetUpdate(exercise.id, setIndex, 'reps', e.target.value)} placeholder={exercise.targetReps?.split('-')[0].trim() || 'Reps'} className="bg-gray-700 p-2 rounded w-full text-center" disabled={exercise.status !== 'pending'} />
-                                            <input type="number" value={exercise.actualSets?.[setIndex]?.weight ?? ''} onChange={e => onSetUpdate(exercise.id, setIndex, 'weight', e.target.value)} placeholder={`${exercise.targetWeightValue || '0'} kg`} className="bg-gray-700 p-2 rounded w-full text-center" disabled={exercise.status !== 'pending'} step="0.5" />
+                                            {exercise.metricType === 'weight_reps' && <input type="number" value={exercise.actualSets?.[setIndex]?.weight ?? ''} onChange={e => onSetUpdate(exercise.id, setIndex, 'weight', e.target.value)} placeholder={`${exercise.targetWeightValue || '0'} kg`} className="bg-gray-700 p-2 rounded w-full text-center" disabled={exercise.status !== 'pending'} step="0.5" />}
                                             <input type="checkbox" checked={exercise.actualSets?.[setIndex]?.completed || false} onChange={() => handleSetComplete(setIndex)} className="form-checkbox h-5 w-5 bg-gray-600 border-gray-500 rounded text-cyan-500 focus:ring-cyan-500/50 cursor-pointer" disabled={exercise.status !== 'pending'}/>
                                             <button onClick={() => onDeleteSet(exercise.id, setIndex)} className="text-red-500 hover:text-red-400 disabled:opacity-50" disabled={exercise.status !== 'pending'}>
                                                 <Trash2 size={16} />
@@ -140,7 +140,6 @@ const ExerciseItem = ({ exercise, onUpdate, onSetUpdate, onComplete, onUndo, onE
                                 </div>
                             )}
                         </div>
-                         {/* --- NEW: Calorie display --- */}
                          {exercise.calories && (
                             <div className="text-xs text-amber-400 flex items-center justify-end mt-2">
                                 <Flame size={12} className="mr-1"/>~{exercise.calories} kcal

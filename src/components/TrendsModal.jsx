@@ -1,31 +1,40 @@
+// src/components/TrendsModal.jsx
 import React, { useMemo } from 'react';
 import { X } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
-// Helper function to format dates for the chart
 const formatDate = (date) => new Date(date).toLocaleDateString('en-GB', { month: 'short', day: 'numeric' });
 
 const TrendsModal = ({ weeklyPlan, onClose }) => {
-    // useMemo will only recalculate the trend data when the weeklyPlan changes
     const trendData = useMemo(() => {
         const exerciseHistory = {};
-        // Get all date keys and sort them chronologically
+        
         Object.keys(weeklyPlan).sort().forEach(dateKey => {
             weeklyPlan[dateKey]?.exercises?.forEach(ex => {
-                // We only care about completed strength exercises with a weight value
-                if (ex.status !== 'pending' && ex.status !== 'skipped' && ex.type === 'strength' && ex.targetWeightValue > 0) {
+                // Only track completed strength exercises
+                if (ex.status !== 'pending' && ex.status !== 'skipped' && ex.metricType === 'weight_reps') {
                     if (!exerciseHistory[ex.name]) {
                         exerciseHistory[ex.name] = [];
                     }
-                    // Add the data point for the chart
-                    exerciseHistory[ex.name].push({
-                        date: formatDate(dateKey),
-                        weight: ex.targetWeightValue
-                    });
+
+                    // --- UPDATED LOGIC: Find the max actual weight lifted ---
+                    let maxWeight = 0;
+                    if (ex.actualSets && ex.actualSets.length > 0) {
+                        // Find the heaviest weight from the completed sets for that day
+                        maxWeight = Math.max(...ex.actualSets.map(s => parseFloat(s.weight) || 0));
+                    }
+                    
+                    // Only add a data point if a weight was actually lifted
+                    if (maxWeight > 0) {
+                        exerciseHistory[ex.name].push({
+                            date: formatDate(dateKey),
+                            weight: maxWeight
+                        });
+                    }
                 }
             });
         });
-        // Filter out exercises that don't have enough data points to form a trend line
+        
         return Object.entries(exerciseHistory).filter(([, data]) => data.length > 1);
     }, [weeklyPlan]);
 
@@ -48,10 +57,10 @@ const TrendsModal = ({ weeklyPlan, onClose }) => {
                                         <LineChart data={data} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
                                             <CartesianGrid strokeDasharray="3 3" stroke="#4b5563" />
                                             <XAxis dataKey="date" stroke="#9ca3af" fontSize={12} />
-                                            <YAxis stroke="#9ca3af" fontSize={12} domain={['dataMin - 5', 'dataMax + 5']} />
+                                            <YAxis stroke="#9ca3af" fontSize={12} domain={['dataMin - 5', 'dataMax + 5']} unit="kg" />
                                             <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #4b5563' }} />
                                             <Legend />
-                                            <Line type="monotone" dataKey="weight" name="Weight (kg)" stroke="#22d3ee" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 8 }} />
+                                            <Line type="monotone" dataKey="weight" name="Actual Weight (kg)" stroke="#22d3ee" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 8 }} />
                                         </LineChart>
                                     </ResponsiveContainer>
                                 </div>
@@ -60,7 +69,7 @@ const TrendsModal = ({ weeklyPlan, onClose }) => {
                     ) : (
                         <div className="flex flex-col items-center justify-center h-full text-center">
                             <p className="text-lg text-gray-400">Not enough data to show trends.</p>
-                            <p className="text-sm text-gray-500">Complete more strength workouts to see your progress.</p>
+                            <p className="text-sm text-gray-500">Complete more strength workouts with recorded weights to see your progress.</p>
                         </div>
                     )}
                 </div>
